@@ -1,4 +1,4 @@
-#  ForQuE
+#  halomodel_cib_tsz_cibxtsz
 
 Computes the CIB, tSZ, and CIB-tSZ correlation power spectrum using a newly developed halo model
 

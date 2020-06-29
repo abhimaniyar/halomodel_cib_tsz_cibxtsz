@@ -5,7 +5,7 @@ import numpy as np
 
 def plot_Cell(ell, one_halo, two_halo, nu1, nu2, freq, mod):
     total = one_halo + two_halo
-    f, ax = plt.subplots(figsize=(10, 10))
+    f, ax = plt.subplots(figsize=(8, 8))
     ax.plot(ell, np.abs(one_halo[nu1, nu2, :]), 'b-.', label='1-halo')
     ax.plot(ell, np.abs(two_halo[nu1, nu2, :]), 'b--', label='2-halo')
     ax.plot(ell, np.abs(total[nu1, nu2, :]), 'b', label='total')
