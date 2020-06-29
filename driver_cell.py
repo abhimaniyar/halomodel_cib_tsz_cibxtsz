@@ -6,7 +6,7 @@ from plot_cell import *
 
 
 """
-Also, although we are calculating the halo mass function, halo bias, and the
+Although we are calculating the halo mass function, halo bias, and the
 Fourier transform of the NFW profile here, the computation can be speeded up
 by precomputing them before and storing them in a file and then reading
 them here.
