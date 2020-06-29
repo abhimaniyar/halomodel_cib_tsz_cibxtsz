@@ -1,0 +1,142 @@
+from headers_constants import *
+from Cell_cib import *
+from Cell_tSZ import *
+from Cell_CIBxtSZ import *
+
+
+# ############### planck cib data #########################
+deltah_cib = 200
+hdulist = fits.open('data/filtered_snu_15.fits')
+redshifts = hdulist[1].data
+snu_eff_pl = hdulist[0].data  # in Jy/Lsun
+hdulist.close()
+
+
+cc_pl = np.array([1.076, 1.017, 1.119, 1.097, 1.068, 0.995, 0.960])
+# [100, 143, 217, 353, 545, 857, 3000] GHz
+fc_pl = np.ones(len(cc_pl))
+
+ll = [str(x) for x in range(1, 211)]
+addr = 'data/matter power spectra 15'
+pkarray = np.loadtxt('%s/highk/test_highk_lin_matterpower_210.dat' % (addr))
+k = pkarray[:, 0]*cosmo.h
+Pk = np.zeros((len(k), len(redshifts)))
+for i in range(len(redshifts)):
+    pkarray = np.loadtxt("%s/highk/test_highk_lin_matterpower_%s.dat" % (addr, ll[209-i]))
+    Pk[:, i] = pkarray[:, 1]/cosmo.h**3
+
+ldata1 = np.linspace(150., 2000., 20)
+
+z = redshifts
+
+k_array = np.zeros((len(ldata1), len(z)))
+Pk_int = np.zeros((len(ldata1), len(z)))
+
+for i in range(len(ldata1)):
+    k_array[i, :] = ldata1[i]/(cosmo.comoving_distance(z).value)
+    for j in range(len(z)):
+        Pk_int[i, j] = np.interp(k_array[i, j], k, Pk[:, j])
+
+logmass = np.arange(6, 15.005, 0.1)
+mass = 10**logmass
+
+"""
+file_hmf = "data/hmf_precalculated_log10.fits"
+hdulist = fits.open("%s" % (file_hmf))
+hmf = hdulist[0].data
+hdulist.close()
+
+file_nfw = "data/u_nfw_precalculated.fits"
+hdulist = fits.open("%s" % (file_nfw))
+u_nfw = hdulist[0].data
+hdulist.close()
+
+file_bias = "data/bias_precalculated.fits"
+hdulist = fits.open("%s" % (file_bias))
+b_m_z = hdulist[0].data
+hdulist.close()
+"""
+
+nm = len(mass)
+nz = len(z)
+hmf = np.zeros((nm, nz))
+u_nfw = np.zeros((nm, len(k_array[:, 0]), nz))
+bias_m_z = np.zeros((nm, nz))
+delta_h = deltah_cib
+
+for r in range(nz):
+    instance = hmf_unfw_bias.h_u_b(k, Pk[:, r], z[r],
+                                   cosmo, delta_h, mass)
+    hmf[:, r] = instance.dn_dlogm()
+    # nfw_u[:, :, r] = instance.nfwfourier_u()
+    bias_m_z[:, r] = instance.b_nu()
+    instance2 = hmf_unfw_bias.h_u_b(k_array[:, r],
+                                    Pk_int[:, r], z[r],
+                                    cosmo, delta_h, mass)
+    u_nfw[:, :, r] = instance2.nfwfourier_u()
+
+
+z_c = 1.5
+
+Meffmax, etamax, sigmaMh = 8753289339381.791, 0.4028353504978569, 1.807080723258688
+tau = 1.2040244128818796
+
+clcib = cl_cib(k_array, Pk_int, z, z_c, mass,
+               snu_eff_pl, ldata1,
+               cosmo, Meffmax, etamax, sigmaMh,
+               tau, cc_pl, fc_pl, hmf, u_nfw, bias_m_z)
+cl1h_cib = clcib.onehalo_int()
+cl2h_cib = clcib.twohalo_int()
+
+
+# ############################### tSZ params ############################
+
+xstep = 50
+lnx = np.linspace(-6, 1, xstep)
+x = 10**lnx
+nu = np.array([100., 143., 217., 353., 545., 857.])*ghz
+nus = ['100', '143', '217', '353', '545', '857']
+delta_h_tsz = 500
+B = 1.41
+m500 = np.repeat(mass[..., np.newaxis], len(z), axis=1)
+
+bias_m_z = np.zeros((len(m500[:, 0]), len(z)))
+for r in range(len(z)):
+    instance2 = hmf_unfw_bias.h_u_b(k,
+                                    Pk[:, r], z[r],
+                                    cosmo, delta_h_tsz, m500[:, 0])
+    bias = instance2.b_nu()
+    bias_m_z[:, r] = bias
+# """
+
+hmf = np.zeros((len(m500), len(z)))
+for r in range(len(z)):
+    test_filt = hmf_unfw_bias.h_u_b(k,
+                                    Pk[:, r], z[r],
+                                    cosmo, delta_h_tsz, m500[:, 0])
+    hmf[:, r] = test_filt.dn_dlogm()
+    instance2 = hmf_unfw_bias.h_u_b(k_array[:, r],
+                                    Pk_int[:, r], z[r],
+                                    cosmo, delta_h_tsz, mass)
+    u_nfw[:, :, r] = instance2.nfwfourier_u()
+
+cltsz = cl_tsz(nu, m500, z, cosmo, delta_h_tsz, x, ldata1, B, hmf, Pk_int,
+               bias_m_z)
+cl1h_tsz = cltsz.C_ell_1h()
+cl2h_tsz = cltsz.C_ell_2h()
+
+
+# ################################ cib x tSZ ########################
+
+Meffmax, etamax, sigmaMh = 6962523672799.227, 0.4967291547804018, 1.8074450009861387
+tau = 1.2016980179374213
+cib_cls = cl_cib(k_array, Pk_int, z, z_c, mass,
+                 snu_eff_pl[:-1, :], ldata1,
+                 cosmo, Meffmax, etamax, sigmaMh,
+                 tau, cc_pl[:-1], fc_pl[:-1], hmf, u_nfw, bias_m_z)
+tsz_cls = cl_tsz(nu, m500, z, cosmo, delta_h_tsz, x, ldata1, B, hmf, Pk_int,
+                 bias_m_z)
+cibtsz = cl_cibxtsz(cib_cls, tsz_cls)
+cl1h_cibtsz = cibtsz.onehalo()  # *Kcmb_MJy*1e6
+cl2h_cibtsz = cibtsz.twohalo()
+print cl1h_cibtsz[0, 0, :]
