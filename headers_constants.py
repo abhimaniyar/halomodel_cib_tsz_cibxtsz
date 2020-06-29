@@ -1,10 +1,8 @@
 import numpy as np
 from numpy import sin, cos
 from astropy.cosmology import Planck15
-from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 import scipy.integrate as intg
 import astropy.units as u
-import matplotlib.pyplot as plt
 from scipy.special import *
 from numpy import log
 import scipy.constants as con

@@ -35,14 +35,14 @@ class cl_cibxtsz(object):
         u_nfw = self.cib.unfw  # dim m,ell,z
         geo = self.dVc_dz()
         dj_c, dj_sub = self.dj2cibprime()
-        g_v = self.tsz.g_nu()*1e6*Kcmb_MJy
+        f_v = self.tsz.f_nu()*1e6*Kcmb_MJy
         y_ell = self.tsz.y_ell_tab()
         dlog10m = np.log10(self.mh[1] / self.mh[0])
         for i in range(len(self.ell)):
             for f in range(self.nfreq):
-                a = y_ell[i, :]*((dj_c+dj_sub*u_nfw[:, i, :])*self.cib.cc[:, None, None]*g_v[f] +
+                a = y_ell[i, :]*((dj_c+dj_sub*u_nfw[:, i, :])*self.cib.cc[:, None, None]*f_v[f] +
                                  (dj_c[f, :]+dj_sub[f, :] *
-                                 u_nfw[:, i, :])*self.cib.cc[f]*g_v[:, None, None]) * \
+                                 u_nfw[:, i, :])*self.cib.cc[f]*f_v[:, None, None]) * \
                         self.tsz.hmf
                 intgn_mh = intg.simps(a, dx=dlog10m, axis=1, even='avg')
                 b = geo*intgn_mh
@@ -57,7 +57,7 @@ class cl_cibxtsz(object):
         u_nfw = self.cib.unfw  # dim m,ell,z
         geo = self.dVc_dz()*self.cib.Pk_int
         dj_c, dj_sub = self.dj2cibprime()
-        g_v = self.tsz.g_nu()*1e6*Kcmb_MJy
+        f_v = self.tsz.f_nu()*1e6*Kcmb_MJy
         y_ell = self.tsz.y_ell_tab()
         bhmf = self.tsz.biasmz*self.tsz.hmf
         dlog10m = np.log10(self.mh[1] / self.mh[0])
@@ -65,9 +65,9 @@ class cl_cibxtsz(object):
             a1 = y_ell[i, :]*bhmf
             intgn_mh1 = intg.simps(a1, dx=dlog10m, axis=0, even='avg')
             for f in range(self.nfreq):
-                a2 = ((dj_c+dj_sub*u_nfw[:, i, :])*g_v[f] +
+                a2 = ((dj_c+dj_sub*u_nfw[:, i, :])*f_v[f] +
                       (dj_c[f, :]+dj_sub[f, :]*u_nfw[:, i, :]) *
-                      g_v[:, None, None])*bhmf
+                      f_v[:, None, None])*bhmf
                 intgn_mh2 = intg.simps(a2, dx=dlog10m, axis=1, even='avg')
                 b = geo[i, :]*intgn_mh1*intgn_mh2
                 intgn_z = intg.simps(b, x=self.z, axis=-1, even='avg')

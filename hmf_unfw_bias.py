@@ -1,3 +1,7 @@
+from headers_constants import *
+from scipy.interpolate import InterpolatedUnivariateSpline as _spline
+
+
 # code to calculate the halo mass function, halo bias, and the Fourier
 # transform of the NFW profile
 

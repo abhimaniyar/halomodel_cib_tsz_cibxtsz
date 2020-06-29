@@ -2,7 +2,18 @@ from headers_constants import *
 from Cell_cib import *
 from Cell_tSZ import *
 from Cell_CIBxtSZ import *
+from plot_cell import *
 
+
+"""
+Here we are shwoing the CIB power spectra corressponding to the Planck
+frequency channels. If you want to calculate the Hershel/Spire
+power spectra, use corresponding files in the data folder.
+Also, although we are calculating the halo mass function, halo bias, and the
+Fourier transform of the NFW profile here, the computation can be speeded up
+by precomputing them before and storing them in a file and then reading
+them here.
+"""
 
 # ############### planck cib data #########################
 deltah_cib = 200
@@ -40,22 +51,6 @@ for i in range(len(ldata1)):
 logmass = np.arange(6, 15.005, 0.1)
 mass = 10**logmass
 
-"""
-file_hmf = "data/hmf_precalculated_log10.fits"
-hdulist = fits.open("%s" % (file_hmf))
-hmf = hdulist[0].data
-hdulist.close()
-
-file_nfw = "data/u_nfw_precalculated.fits"
-hdulist = fits.open("%s" % (file_nfw))
-u_nfw = hdulist[0].data
-hdulist.close()
-
-file_bias = "data/bias_precalculated.fits"
-hdulist = fits.open("%s" % (file_bias))
-b_m_z = hdulist[0].data
-hdulist.close()
-"""
 
 nm = len(mass)
 nz = len(z)
@@ -88,6 +83,10 @@ clcib = cl_cib(k_array, Pk_int, z, z_c, mass,
 cl1h_cib = clcib.onehalo_int()
 cl2h_cib = clcib.twohalo_int()
 
+# plotting the CIB power spectra for freq[nu1]xfreq[nu2] GHz
+freq = ['100', '143', '217', '353', '545', '857']
+nu1, nu2 = 4, 4
+plot_Cell(ldata1, cl1h_cib, cl2h_cib, nu1, nu2, freq, 'CIB')
 
 # ############################### tSZ params ############################
 
@@ -125,6 +124,10 @@ cltsz = cl_tsz(nu, m500, z, cosmo, delta_h_tsz, x, ldata1, B, hmf, Pk_int,
 cl1h_tsz = cltsz.C_ell_1h()
 cl2h_tsz = cltsz.C_ell_2h()
 
+# plotting the tSZ power spectra for freq[nu1]xfreq[nu2] GHz
+freq = ['100', '143', '217', '353', '545', '857']
+nu1, nu2 = 0, 0
+plot_Cell(ldata1, cl1h_tsz, cl2h_tsz, nu1, nu2, freq, 'tSZ')
 
 # ################################ cib x tSZ ########################
 
@@ -139,4 +142,8 @@ tsz_cls = cl_tsz(nu, m500, z, cosmo, delta_h_tsz, x, ldata1, B, hmf, Pk_int,
 cibtsz = cl_cibxtsz(cib_cls, tsz_cls)
 cl1h_cibtsz = cibtsz.onehalo()  # *Kcmb_MJy*1e6
 cl2h_cibtsz = cibtsz.twohalo()
-print cl1h_cibtsz[0, 0, :]
+
+# plotting the CIBxtSZ power spectra for freq[nu1]xfreq[nu2] GHz
+freq = ['100', '143', '217', '353', '545', '857']
+nu1, nu2 = 0, 1
+plot_Cell(ldata1, cl1h_cibtsz, cl2h_cibtsz, nu1, nu2, freq, 'CIB x tSZ')

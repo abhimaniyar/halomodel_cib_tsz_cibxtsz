@@ -20,14 +20,14 @@ class cl_tsz(object):
         self.biasmz = biasmz
         self.M_tilde = self.m/self.B
 
-    def g_nu(self):
+    def f_nu(self):
         """
         Normally it is calculated as:
         x = h_p*self.nu / k_B / T_cmb
         gnu = x*((np.exp(x) + 1)/(np.exp(x) - 1)) - 4
         However, we have to convolve it with the bandpass filter at a given
         frequency for a given experiment. Here we directly use the values for
-        g_nu which are convolved with the Planck bandpass filters at
+        f_nu which are convolved with the Planck bandpass filters at
         100, 143, 217, 353, 545, and 857 GHz.
         """
         return np.array([-4.031, -2.785, 0.187, 6.205, 14.455, 26.335])
@@ -131,9 +131,9 @@ class cl_tsz(object):
 
         fin = intg.simps(intgral2, x=self.z, axis=1, even='avg')  # ell
 
-        gnu = self.g_nu()*1e6*Kcmb_MJy
+        fnu = self.f_nu()*1e6*Kcmb_MJy
         for f in range(len(self.nu)):
-            cl[f, :, :] = np.outer(gnu, fin)*gnu[f]  # *T_cmb**2
+            cl[f, :, :] = np.outer(fnu, fin)*fnu[f]  # *T_cmb**2
 
         return cl
 
@@ -149,12 +149,12 @@ class cl_tsz(object):
         Kcmb_MJy = np.array([244.1, 371.74, 483.69, 287.45, 58.04, 2.27])
         cl = np.zeros((len(self.nu), len(self.nu), len(self.ell)))
         a_z = self.dVc_dz()  # z
-        gnu = self.g_nu()*1e6*Kcmb_MJy  # nu  # Jy units
+        fnu = self.f_nu()*1e6*Kcmb_MJy  # nu  # Jy units
         ylhmfbias2 = self.tsz_hmf_bias()  # ell,z
         intgrl = a_z*self.power*ylhmfbias2  # ell,z
         fin = intg.simps(intgrl, x=self.z, axis=1, even='avg')  # ell
         for f in range(len(self.nu)):
-            cl[f, :, :] = np.outer(gnu, fin)*gnu[f]  # *T_cmb**2
+            cl[f, :, :] = np.outer(fnu, fin)*fnu[f]  # *T_cmb**2
         return cl
 
     def cltot(self):
