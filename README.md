@@ -12,5 +12,5 @@ python driver_cell.py
 ```
 or look at ```driver_cell.ipynb```.
 
-Hope you find this code useful! Do not hesitate to contact me with any questions: abhishek.maniyar@nyu.edu
+Hope you find this code useful! If you use this code in a publication, please cite https://arxiv.org/abs/2006.16329. Do not hesitate to contact me with any questions: abhishek.maniyar@nyu.edu
 
