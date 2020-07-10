@@ -96,7 +96,7 @@ class cl_tsz(object):
 
         C_t = self.C()*eV_to_J/cm_to_m**3  # converting to SI units
         P_0 = 6.41
-        yl = np.loadtxt('data/y_ell_integration.txt')
+        yl = np.loadtxt('data_files/y_ell_integration.txt')
         intgn = np.zeros((len(self.ell), len(self.m[:, 0]), len(self.z)))
 
         for i in range(len(self.ell)):
