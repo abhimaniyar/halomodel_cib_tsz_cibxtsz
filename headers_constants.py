@@ -8,6 +8,8 @@ from numpy import log
 import scipy.constants as con
 from astropy.io import fits
 import hmf_unfw_bias
+from scipy.interpolate import UnivariateSpline, interp1d, interp2d, RectBivariateSpline
+
 
 KC = 1.0e-10  # Kennicutt constant for Chabrier IMF
 T_cmb = 2.725  # CMB temp
@@ -25,5 +27,8 @@ cm_to_m = 1e-2
 Mpc_to_m = 3.086e22  # Mpc to m
 Km_to_m = 1e3
 ghz = 1e9
+
+w_jy = 1e26  # Watt to Jy
+nW = 1e9
 
 cosmo = Planck15

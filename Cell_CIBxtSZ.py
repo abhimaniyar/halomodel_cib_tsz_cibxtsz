@@ -44,7 +44,8 @@ class cl_cibxtsz(object):
                                  (dj_c[f, :]+dj_sub[f, :] *
                                  u_nfw[:, i, :])*self.cib.cc[f]*f_v[:, None, None]) * \
                         self.tsz.hmf
-                intgn_mh = intg.simps(a, dx=dlog10m, axis=1, even='avg')
+                # intgn_mh = intg.simps(a, dx=dlog10m, axis=1, even='avg')
+                intgn_mh = intg.simps(a, x=np.log10(self.mh), axis=1, even='avg')
                 b = geo*intgn_mh
                 intgn_z = intg.simps(b, x=self.z, axis=-1, even='avg')
                 cl_1h[f, :, i] = intgn_z  # *T_cmb
@@ -63,12 +64,14 @@ class cl_cibxtsz(object):
         dlog10m = np.log10(self.mh[1] / self.mh[0])
         for i in range(len(self.ell)):
             a1 = y_ell[i, :]*bhmf
-            intgn_mh1 = intg.simps(a1, dx=dlog10m, axis=0, even='avg')
+            # intgn_mh1 = intg.simps(a1, dx=dlog10m, axis=0, even='avg')
+            intgn_mh1 = intg.simps(a1, x=np.log10(self.mh), axis=0, even='avg')
             for f in range(self.nfreq):
                 a2 = ((dj_c+dj_sub*u_nfw[:, i, :])*f_v[f] +
                       (dj_c[f, :]+dj_sub[f, :]*u_nfw[:, i, :]) *
                       f_v[:, None, None])*bhmf
-                intgn_mh2 = intg.simps(a2, dx=dlog10m, axis=1, even='avg')
+                # intgn_mh2 = intg.simps(a2, dx=dlog10m, axis=1, even='avg')
+                intgn_mh2 = intg.simps(a2, x=np.log10(self.mh), axis=1, even='avg')
                 b = geo[i, :]*intgn_mh1*intgn_mh2
                 intgn_z = intg.simps(b, x=self.z, axis=-1, even='avg')
                 cl_2h[f, :, i] = intgn_z  # *T_cmb

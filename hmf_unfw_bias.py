@@ -303,7 +303,7 @@ class h_u_b:
         Gives:
             $\frac{1}{\log(1+c) - \frac{c}{1+c}}$
         """
-        return 1 / (np.log(1+c) - c/(1+c))
+        return 1. / (np.log(1.+c) - c/(1.+c))
 
     def nfwfourier_u(self):
         rs = self.r_star()

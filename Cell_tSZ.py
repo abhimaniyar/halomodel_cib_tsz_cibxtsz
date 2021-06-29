@@ -5,19 +5,19 @@ from headers_constants import *
 
 class cl_tsz(object):
 
-    def __init__(self, nu, m, z, cosmo, delta_h, x, ell, B, hmf,
-                 power, biasmz):
-        self.nu = nu
-        self.m = m
-        self.z = z
+    def __init__(self, data_var):
+        self.dv = data_var
+        self.nu = self.dv.nu
+        self.m = self.dv.m500
+        self.z = self.dv.z
         self.cosmo = cosmo
-        self.delta_h = delta_h  # 500 for tSZ
-        self.x = x
-        self.ell = ell
-        self.B = B  # mass bias
-        self.hmf = hmf
-        self.power = power
-        self.biasmz = biasmz
+        self.delta_h = self.dv.delta_h_tsz  # 500 for tSZ
+        self.x = self.dv.x
+        self.ell = self.dv.ell
+        self.B = self.dv.B  # mass bias
+        self.hmf = self.dv.hmf
+        self.power = self.dv.Pk_int
+        self.biasmz = self.dv.bias_m_z
         self.M_tilde = self.m/self.B
 
     def f_nu(self):
@@ -103,6 +103,8 @@ class cl_tsz(object):
             for j in range(len(self.m[:, 0])):
                 l_l500 = self.ell[i]/l500[j, :]  # z
                 y_int = np.interp(np.log(l_l500), yl[:, 0], yl[:, 1])
+                # if min(np.log(l_l500)) < min(yl[:, 0]) or max(np.log(l_l500)) > max(yl[:, 0]):
+                #     print ('here')
                 intgn[i, j, :] = np.exp(y_int)
         return P_0*intgn*a*C_t  # dim ell,m,z  unitless
 
@@ -125,7 +127,8 @@ class cl_tsz(object):
         intgral1 = self.hmf*y_l2  # ell,m,z
 
         dlogm = np.log10(self.m[1, 0] / self.m[0, 0])
-        intgn1 = intg.simps(intgral1, dx=dlogm, axis=1, even='avg')  # ell,z
+        # intgn1 = intg.simps(intgral1, dx=dlogm, axis=1, even='avg')  # ell,z
+        intgn1 = intg.simps(intgral1, x=np.log10(self.m[:, 0]), axis=1, even='avg')  # ell,z
 
         intgral2 = a_z*intgn1
 
@@ -142,7 +145,8 @@ class cl_tsz(object):
         y_l = self.y_ell_tab()  # ell,m,z
         intgrl = self.hmf*self.biasmz*y_l  # # ell,m,z  hmf,bias=m,z
         dlogm = np.log10(self.m[1, 0] / self.m[0, 0])
-        fin = intg.simps(intgrl, dx=dlogm, axis=1, even='avg')  # ell,z
+        # fin = intg.simps(intgrl, dx=dlogm, axis=1, even='avg')  # ell,z
+        fin = intg.simps(intgrl, x=np.log10(self.m[:, 0]), axis=1, even='avg')  # ell,z
         return fin**2  # ell,z
 
     def C_ell_2h(self):

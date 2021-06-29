@@ -2,20 +2,19 @@ from headers_constants import *
 
 
 class cl_cib(object):
-
+    """
     def __init__(self, k, power, z, z_c, mh, snu_eff, ell,
                  cosmo, Meffmax, etamax, sigmaMh,
                  tau, cc, fc, hmf, unfw, bmz):  # ,
         self.k_array = k
-        """k shuld be 2-d array corresponing to redshifts and
-        angular scales and should be interpolated at k = ell/chi where ell
-        is the angular scale: final dim. = len(ell, len(z))"""
+        #k shuld be 2-d array corresponing to redshifts and
+        # angular scales and should be interpolated at k = ell/chi where ell
+        # is the angular scale: final dim. = len(ell, len(z))
         self.Pk_int = power
-        """2-d array for corresponding redshifts and
-        interpolated for given ell range such that k = ell/chi i.e. for every
-        redshift, it's interpolated at k = ell/chi. i.e. for every redshift
-        you interpolate k_int(z) = len(ell): np.interp(k_int, k(z), pk(z))
-        """
+        # 2-d array for corresponding redshifts and
+        # interpolated for given ell range such that k = ell/chi i.e. for every
+        # redshift, it's interpolated at k = ell/chi. i.e. for every redshift
+        # you interpolate k_int(z) = len(ell): np.interp(k_int, k(z), pk(z))
         self.z = z  # all the redshifts (1-d array)
         self.z_c = z_c
         self.mh = mh
@@ -37,6 +36,41 @@ class cl_cib(object):
         self.nfreq = len(snu_eff[:, 0])
         self.sig_z = np.array([max(z_c - r, 0.) for r in self.z])
         self.sigpow = self.sigmaMh - self.tau*self.sig_z
+    """
+    def __init__(self, data_var):  # ,
+        self.dv = data_var
+        self.k_array = self.dv.k_array
+        """k shuld be 2-d array corresponing to redshifts and
+        angular scales and should be interpolated at k = ell/chi where ell
+        is the angular scale: final dim. = len(ell, len(z))"""
+        self.Pk_int = self.dv.Pk_int
+        """2-d array for corresponding redshifts and
+        interpolated for given ell range such that k = ell/chi i.e. for every
+        redshift, it's interpolated at k = ell/chi. i.e. for every redshift
+        you interpolate k_int(z) = len(ell): np.interp(k_int, k(z), pk(z))
+        """
+        self.z = self.dv.z
+        self.z_c = self.dv.z_c
+        self.mh = self.dv.mass
+        self.snu_eff = self.dv.snu
+        # i.e. snu_eff[:, len(z)]
+        self.ell = self.dv.ell
+        self.cosmo = cosmo
+        # self.deltah = deltah
+        self.Meffmax = self.dv.Meffmax
+        self.etamax = self.dv.etamax
+        self.sigmaMh = self.dv.sigmaMh
+        self.tau = self.dv.tau
+        self.cc = self.dv.cc
+        self.fc = self.dv.fc
+        self.hmfmz = self.dv.hmf
+        self.unfw = self.dv.u_nfw
+        self.bmz = self.dv.bias_m_z
+        self.nfreq = len(self.snu_eff[:, 0])
+        self.sig_z = np.array([max(self.z_c - r, 0.) for r in self.z])
+        self.sigpow = self.sigmaMh - self.tau*self.sig_z
+        self.cc_cibmean = self.dv.cc_cibmean
+        self.freq_Iv = self.dv.freq_Iv
 
     def sfr_mhdot(self, mhalo):
         """ SFR/Mhdot lognormal distribution wrt halomass """
@@ -147,7 +181,8 @@ class cl_cib(object):
                 rest1 = (dj_cen[f, :, :]*dj_sub*u[:, i, :] + dj_cen *
                          dj_sub[f, :, :]*u[:, i, :] + dj_sub[f, :, :] *
                          dj_sub*u[:, i, :]**2) / self.hmfmz
-                intg_mh = intg.simps(rest1, dx=dm, axis=1, even='avg')
+                # intg_mh = intg.simps(rest1, dx=dm, axis=1, even='avg')
+                intg_mh = intg.simps(rest1, x=np.log10(self.mh), axis=1, even='avg')
                 # intg_mh[:, :5] = 0  # cutting contribn from 0 to 0.5 redshift
                 intg_z = intg.simps(intg_mh*geo, x=self.z, axis=-1, even='avg')
                 Cl_1h[f, :, i] = fcxcc[f]*intg_z*fcxcc
@@ -160,13 +195,14 @@ class cl_cib(object):
         dm = np.log10(self.mh[1] / self.mh[0])
         for i in range(len(self.ell)):
             rest1 = (dj_cen + dj_sub*u[:, i, :])*self.bmz
-            intg_mh = intg.simps(rest1, dx=dm, axis=1, even='avg')
+            # intg_mh = intg.simps(rest1, dx=dm, axis=1, even='avg')
+            intg_mh = intg.simps(rest1, x=np.log10(self.mh), axis=1, even='avg')
             Jnu[:, :, i] = intg_mh
         return Jnu
 
     def twohalo_int(self):
         Cl_2h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))
-        Jv = self.J_nu()  # Meffmax, etamax, sigmaMh, alpha)
+        Jv = self.J_nu()
         c_light = 299792458.0e-3
         dchi_dz = (c_light/(self.cosmo.H0*np.sqrt((self.cosmo.Om0)*(1+self.z)**3 + self.cosmo.Ode0))).value
         geo = dchi_dz/(self.cosmo.comoving_distance(self.z).value*(1+self.z))**2
@@ -178,3 +214,21 @@ class cl_cib(object):
             intg_z = intg.simps(rest1, x=self.z, axis=1, even='avg')
             Cl_2h[f, :, :] = fcxcc[f]*intg_z*fcxcc[:, None]
         return Cl_2h
+
+    def J_nu_iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
+        # integrated differential emissivity over all the masses
+        dj_cen, dj_sub = self.djc_dlnMh(), self.djsub_dlnMh()
+        intgral1 = dj_cen+dj_sub
+        # dm = np.log10(self.mh[1] / self.mh[0])
+        # return intg.simps(intgral1, dx=dm, axis=1, even='avg')
+        return intg.simps(intgral1, x=np.log10(self.mh), axis=1, even='avg')
+
+    def Iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
+        jnu = self.J_nu_iv()
+        dchi_dz = (c_light/(self.cosmo.H0*np.sqrt((self.cosmo.Om0)*(1+self.z)**3 + self.cosmo.Ode0))).value
+        intgral2 = dchi_dz*jnu/(1+self.z)
+        result = self.cc_cibmean*self.freq_Iv*intg.simps(intgral2, x=self.z,
+                                                         axis=-1, even='avg')
+        result *= ghz*nW/w_jy  # nWm^2/sr
+        return result
+
