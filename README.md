@@ -24,5 +24,6 @@ of course replace the raw SEDs with filtered SEDs of your instrument of choice i
 the halo mass function/Fourier tranform of the NFW profile/halo bias, that is possible as well. 
 * All the changes proposed above will have to be done in the ```input_var.py``` file.
 
-Hope you find this code useful! If you use this code in a publication, please cite https://arxiv.org/abs/2006.16329. Do not hesitate to contact me with any questions: abhishek.maniyar@nyu.edu
+Hope you find this code useful! If you use this code in a publication, please cite https://arxiv.org/abs/2006.16329. 
+Do not hesitate to contact me with any questions: abhimaniyar@gmail.com
 
