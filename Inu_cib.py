@@ -10,7 +10,6 @@ class I_nu_cib(object):
         self.mh = self.dv.mass
         self.snu_eff = self.dv.snu
         # i.e. snu_eff[:, len(z)]
-        self.ell = self.dv.ell
         self.cosmo = cosmo
         # self.deltah = deltah
         self.Meffmax = self.dv.Meffmax
@@ -58,8 +57,8 @@ class I_nu_cib(object):
         f_b = self.cosmo.Ob(self.z)/self.cosmo.Om(self.z)
         return mhdot * f_b * sfrmhdot
 
-    def djc_dlnMh(self):
-        fsub = 0.134
+    def djc_dlogMh(self):
+        fsub = 0.134*np.log(10)
         """fraction of the mass of the halo that is in form of
         sub-halos. We have to take this into account while calculating the
         star formation rate of the central halos. It should be calulated by
@@ -88,19 +87,19 @@ class I_nu_cib(object):
         """
         log10msub_min = 5
         if np.log10(mhalo) <= log10msub_min:
-            raise ValueError, "halo mass %d should be greater than subhalo mass \
-%d." % (np.log10(mhalo), log10msub_min)
+            raise ValueError("halo mass %d should be greater than subhalo mass \
+%d." % (np.log10(mhalo), log10msub_min))
         else:
             logmh = np.log10(mhalo)
             logmsub = np.arange(log10msub_min, logmh, 0.1)
             return 10**logmsub
 
-    def djsub_dlnMh(self):
+    def djsub_dlogMh(self):
         """
         for subhalos, the SFR is calculated in two ways and the minimum of the
         two is assumed.
         """
-        fsub = 0.134
+        fsub = 0.134*np.log(10)
         a = np.zeros((len(self.snu_eff[:, 0]), len(self.mh), len(self.z)))
         # sfrmh = self.sfr(mh)
         for i in range(len(self.mh)):
@@ -119,14 +118,30 @@ class I_nu_cib(object):
         return a
 
     def J_nu_iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
+        """
+        integrated differential emissivity over all the masses: used to calculate cib specific intensty.
+        please note that if you want to calculate cib specific intensity for some other instrument
+        like ALMA, you will need to calculate the differential emissivity for the
+        observed frequency of that instrument. This will also involve calculating the CIB SED
+        bandpassed through that instrument's filters and also applying corresponding color corrections.
+        """
+
         # integrated differential emissivity over all the masses
-        dj_cen, dj_sub = self.djc_dlnMh(), self.djsub_dlnMh()
+        dj_cen, dj_sub = self.djc_dlogMh(), self.djsub_dlogMh()
         intgral1 = dj_cen+dj_sub
         # dm = np.log10(self.mh[1] / self.mh[0])
         # return intg.simps(intgral1, dx=dm, axis=1, even='avg')
         return intg.simps(intgral1, x=np.log10(self.mh), axis=1, even='avg')
 
-    def Iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
+    def Iv(self):
+        """
+        integrated differential emissivity over all the masses: used to calculate cib specific intensty.
+        please note that if you want to calculate cib specific intensity for some other instrument
+        like ALMA, you will need to calculate the differential emissivity for the
+        observed frequency of that instrument. This will also involve calculating the CIB SED
+        bandpassed through that instrument's filters and also applying corresponding color corrections.
+        """
+
         jnu = self.J_nu_iv()
         dchi_dz = (c_light/(self.cosmo.H0*np.sqrt((self.cosmo.Om0)*(1+self.z)**3 + self.cosmo.Ode0))).value
         intgral2 = dchi_dz*jnu/(1+self.z)
