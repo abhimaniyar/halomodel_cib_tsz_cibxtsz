@@ -14,7 +14,7 @@ class data_var(object):
         self.fc = self.exp['fc']
 
         self.cc_cibmean = self.exp['cc_cibmean']
-        self.freq_cibmean = self.exp['freq_Iv']
+        self.freq_cibmean = self.exp['freq_cibmean']
 
         self.mass = mass
         self.z = z
