@@ -1,8 +1,5 @@
 from headers_constants import *
 
-# mass definition here is m500 for both the CIB and tSZ. The best fit values
-# for CIB parameters change due to this
-
 
 class cl_cibxtsz(object):
 
@@ -23,14 +20,24 @@ class cl_cibxtsz(object):
         return c_light*self.cosmo.comoving_distance(self.z).value**2/(self.cosmo.H0.value*self.E_z())
 
     def dj2cibprime(self):
-        djcen, djsub = self.cib.djc_dlnMh(), self.cib.djsub_dlnMh()
+        djcen, djsub = self.cib.djc_dlogMh(), self.cib.djsub_dlogMh()
         cosm = (1+self.z)*self.cosmo.comoving_distance(self.z).value**2
         djcen_prime = djcen/(self.tsz.hmf*cosm)
         djsub_prime = djsub/(self.tsz.hmf*cosm)
         return djcen_prime, djsub_prime
 
     def onehalo(self):
-        Kcmb_MJy = [244.1, 371.74, 483.69, 287.45, 58.04, 2.27]
+        if self.dv.exp['name'] == 'Planck':
+            """
+            Kcmb_MJy are factors for Planck frequency channels to convert
+            units from Kcmb to MJy
+            """
+            Kcmb_MJy = np.array([244.1, 371.74, 483.69, 287.45, 58.04, 2.27])
+        else:
+            print ("factors to convert units from Kcmb to MJy for %s experiment are not provided." +
+                   "So the final units here will be Kcmb*Jy/sr" % (self.dv.exp['name']))
+            Kcmb_MJy = np.ones(len(self.nu))
+
         cl_1h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))
         u_nfw = self.cib.unfw  # dim m,ell,z
         geo = self.dVc_dz()
@@ -53,7 +60,17 @@ class cl_cibxtsz(object):
     # otherwise the units are Kcmb*Jy/sr
 
     def twohalo(self):
-        Kcmb_MJy = [244.1, 371.74, 483.69, 287.45, 58.04, 2.27]
+        if self.dv.exp['name'] == 'Planck':
+            """
+            Kcmb_MJy are factors for Planck frequency channels to convert
+            units from Kcmb to MJy
+            """
+            Kcmb_MJy = np.array([244.1, 371.74, 483.69, 287.45, 58.04, 2.27])
+        else:
+            print ("factors to convert units from Kcmb to MJy for %s experiment are not provided." +
+                   "So the final units here will be Kcmb*Jy/sr" % (self.dv.exp['name']))
+            Kcmb_MJy = np.ones(len(self.nu))
+
         cl_2h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))
         u_nfw = self.cib.unfw  # dim m,ell,z
         geo = self.dVc_dz()*self.cib.Pk_int
@@ -63,15 +80,15 @@ class cl_cibxtsz(object):
         bhmf = self.tsz.biasmz*self.tsz.hmf
         dlog10m = np.log10(self.mh[1] / self.mh[0])
         for i in range(len(self.ell)):
-            a1 = y_ell[i, :]*bhmf
+            res1 = y_ell[i, :]*bhmf
             # intgn_mh1 = intg.simps(a1, dx=dlog10m, axis=0, even='avg')
-            intgn_mh1 = intg.simps(a1, x=np.log10(self.mh), axis=0, even='avg')
+            intgn_mh1 = intg.simps(res1, x=np.log10(self.mh), axis=0, even='avg')
             for f in range(self.nfreq):
-                a2 = ((dj_c+dj_sub*u_nfw[:, i, :])*f_v[f] +
-                      (dj_c[f, :]+dj_sub[f, :]*u_nfw[:, i, :]) *
-                      f_v[:, None, None])*bhmf
+                res2 = ((dj_c+dj_sub*u_nfw[:, i, :])*f_v[f] +
+                        (dj_c[f, :]+dj_sub[f, :]*u_nfw[:, i, :]) *
+                        f_v[:, None, None])*bhmf
                 # intgn_mh2 = intg.simps(a2, dx=dlog10m, axis=1, even='avg')
-                intgn_mh2 = intg.simps(a2, x=np.log10(self.mh), axis=1, even='avg')
+                intgn_mh2 = intg.simps(res2, x=np.log10(self.mh), axis=1, even='avg')
                 b = geo[i, :]*intgn_mh1*intgn_mh2
                 intgn_z = intg.simps(b, x=self.z, axis=-1, even='avg')
                 cl_2h[f, :, i] = intgn_z  # *T_cmb

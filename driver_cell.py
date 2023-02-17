@@ -12,35 +12,42 @@ by precomputing them before and storing them in a file and then reading
 them here.
 """
 
-Planck = {'name': 'Planck_only',
+Planck = {'name': 'Planck',
           'do_cib': 1, 'do_tsz': 1, 'do_cibxtsz': 1,
-          'freq_cib': ['100', '143', '217', '353', '545', '857'],
+          'freq_cib': [100., 143., 217., 353., 545., 857.],
           'cc': np.array([1.076, 1.017, 1.119, 1.097, 1.068, 0.995, 0.960]),
           'cc_cibmean': np.array([1.076, 1.017, 1.119, 1.097, 1.068, 0.995, 0.960]),
-          'freq_Iv': np.array([100., 143., 217., 353., 545., 857.]),
+          'freq_cibmean': np.array([100., 143., 217., 353., 545., 857.]),
           'fc': np.ones(7),
-          'snuaddr': 'data_files/filtered_snu_planck.fits',
+          }
 
-          'cibpar_resfile': 'data_files/one_halo_bestfit_allcomponents_' +
-          'lognormal_sigevol_1p5zcutoff_nospire_fcpl_onlyautoshotpar_' +
-          'no3000_gaussian600n857n1200_planck_spire_hmflog10.txt',
+Herschel = {'name': 'Herschel-spire',
+            'do_cib': 1, 'do_tsz': 0, 'do_cibxtsz': 0,
+            'freq_cib': [600., 857., 1200.],
+            'cc': np.array([0.974, 0.989, 0.988]),
+            'cc_cibmean': np.array([0.974, 0.989, 0.988]),
+            'freq_cibmean': np.array([600., 857., 1200.]),
+            'fc': np.ones(3),
+            }
 
-          'cibxtszpar_resfile': 'data_files/one_halo_bestfit_allcomponents_' +
-          'lognormal_sigevol_highk_deltah500_onlyautoshotpar_no3000_' +
-          'gaussian600n857n1200_planck_spire_hmflog10.txt'}
+CCAT = {'name': 'CCAT-p',
+        'do_cib': 1, 'do_tsz': 0, 'do_cibxtsz': 0,
+        'freq_cib': [220., 280., 350., 410., 850.],
+        'cc': np.ones(5),
+        'cc_cibmean': np.ones(5),
+        'freq_cibmean': np.array([220., 280., 350., 410., 850.]),
+        'fc': np.ones(5),
+         }
 
 exp = Planck
 
 # ############### planck cib data #########################
 
-ell = np.linspace(150., 2000., 20)
+ell = np.linspace(2, 1e4, 5000)
 redshifts = np.loadtxt('data_files/redshifts.txt')
 z1 = np.linspace(min(redshifts), max(redshifts), 200)
-# z2 = np.linspace(min(redshifts), 1.5, 80)
-# z3 = np.linspace(1.51, max(redshifts), 30)
-# z11 = np.concatenate((z2, z3))
-# zn = np.linspace(min(redshifts), 3., 130)
-z = z1  # z1  # redshifts # zn # z11
+
+z = redshifts  # z1  # redshifts
 
 logmass = np.arange(6, 15.005, 0.1)
 mass = 10**logmass
@@ -59,7 +66,7 @@ if exp['do_cib'] == 1:
     # plt.rcParams["font.family"] = fam
     
     freq = ['100', '143', '217', '353', '545', '857']
-    nu1, nu2 = 4, 4
+    nu1, nu2 = 1, 1
     plot_Cell(ell, cl1h_cib, cl2h_cib, nu1, nu2, freq, 'CIB')
     # plt.figure()
 
@@ -69,7 +76,8 @@ if exp['do_tsz'] == 1:
     cltsz = cl_tsz(driver)
     cl1h_tsz = cltsz.C_ell_1h()
     cl2h_tsz = cltsz.C_ell_2h()
-    
+    # self.B = 1.41
+
     # plotting the tSZ power spectra for freq[nu1]xfreq[nu2] GHz
     freq = ['100', '143', '217', '353', '545', '857']
     nu1, nu2 = 0, 0
@@ -89,6 +97,6 @@ if exp['do_cibxtsz'] == 1:
 
     # plotting the CIBxtSZ power spectra for freq[nu1]xfreq[nu2] GHz
     freq = ['100', '143', '217', '353', '545', '857']
-    nu1, nu2 = 0, 1
+    nu1, nu2 = 0, 0
     plot_Cell(ell, cl1h_cibtsz, cl2h_cibtsz, nu1, nu2, freq, 'CIB x tSZ')
     # """

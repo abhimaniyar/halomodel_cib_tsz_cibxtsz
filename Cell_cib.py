@@ -2,41 +2,6 @@ from headers_constants import *
 
 
 class cl_cib(object):
-    """
-    def __init__(self, k, power, z, z_c, mh, snu_eff, ell,
-                 cosmo, Meffmax, etamax, sigmaMh,
-                 tau, cc, fc, hmf, unfw, bmz):  # ,
-        self.k_array = k
-        #k shuld be 2-d array corresponing to redshifts and
-        # angular scales and should be interpolated at k = ell/chi where ell
-        # is the angular scale: final dim. = len(ell, len(z))
-        self.Pk_int = power
-        # 2-d array for corresponding redshifts and
-        # interpolated for given ell range such that k = ell/chi i.e. for every
-        # redshift, it's interpolated at k = ell/chi. i.e. for every redshift
-        # you interpolate k_int(z) = len(ell): np.interp(k_int, k(z), pk(z))
-        self.z = z  # all the redshifts (1-d array)
-        self.z_c = z_c
-        self.mh = mh
-        self.snu_eff = snu_eff  # for the corresponding redshifts
-        # i.e. snu_eff[:, len(z)]
-        self.ell = ell
-        self.cosmo = cosmo
-        # self.deltah = deltah
-        self.Meffmax = Meffmax
-        self.etamax = etamax
-        self.sigmaMh = sigmaMh
-        self.tau = tau
-        self.cc = cc
-        self.fc = fc
-        self.hmfmz = hmf
-        self.unfw = unfw
-        self.bmz = bmz
-
-        self.nfreq = len(snu_eff[:, 0])
-        self.sig_z = np.array([max(z_c - r, 0.) for r in self.z])
-        self.sigpow = self.sigmaMh - self.tau*self.sig_z
-    """
     def __init__(self, data_var):  # ,
         self.dv = data_var
         self.k_array = self.dv.k_array
@@ -46,17 +11,15 @@ class cl_cib(object):
         self.Pk_int = self.dv.Pk_int
         """2-d array for corresponding redshifts and
         interpolated for given ell range such that k = ell/chi i.e. for every
-        redshift, it's interpolated at k = ell/chi. i.e. for every redshift
-        you interpolate k_int(z) = len(ell): np.interp(k_int, k(z), pk(z))
+        redshift, it's interpolated at k = ell/chi.
         """
-        self.z = self.dv.z
+        self.z = self.dv.z  # input redshift range over which cib power spectra need to be calculated
         self.z_c = self.dv.z_c
-        self.mh = self.dv.mass
+        self.mh = self.dv.mass  # inout halo mass range over which cib power spectra need to be calculated
         self.snu_eff = self.dv.snu
         # i.e. snu_eff[:, len(z)]
         self.ell = self.dv.ell
         self.cosmo = cosmo
-        # self.deltah = deltah
         self.Meffmax = self.dv.Meffmax
         self.etamax = self.dv.etamax
         self.sigmaMh = self.dv.sigmaMh
@@ -66,11 +29,11 @@ class cl_cib(object):
         self.hmfmz = self.dv.hmf
         self.unfw = self.dv.u_nfw
         self.bmz = self.dv.bias_m_z
-        self.nfreq = len(self.snu_eff[:, 0])
+        self.nfreq = len(self.dv.freqcib)  # len(self.snu_eff[:, 0])
         self.sig_z = np.array([max(self.z_c - r, 0.) for r in self.z])
         self.sigpow = self.sigmaMh - self.tau*self.sig_z
         self.cc_cibmean = self.dv.cc_cibmean
-        self.freq_Iv = self.dv.freq_Iv
+        self.freq_cibmean = self.dv.freq_cibmean
 
     def sfr_mhdot(self, mhalo):
         """ SFR/Mhdot lognormal distribution wrt halomass """
@@ -89,6 +52,10 @@ class cl_cib(object):
         return a
 
     def Mdot(self, mhalo):
+        """
+        mean mass accretion rate from Fakhouri et al. 2010
+        """
+
         use_mean = True
         if use_mean:
             a = 46.1*(1 + 1.11*self.z) * \
@@ -102,13 +69,18 @@ class cl_cib(object):
             return np.outer(b, a)
 
     def sfr(self, mhalo):
+        """
+        star formation rate from SFR/BAR times Mdot times baryon fraction
+        """
+
         sfrmhdot = self.sfr_mhdot(mhalo)
         mhdot = self.Mdot(mhalo)
         f_b = self.cosmo.Ob(self.z)/self.cosmo.Om(self.z)
         return mhdot * f_b * sfrmhdot
 
-    def djc_dlnMh(self):
-        fsub = 0.134
+    def djc_dlogMh(self):
+        # differential emissivty for central halos
+        fsub = 0.134*np.log(10)
         """fraction of the mass of the halo that is in form of
         sub-halos. We have to take this into account while calculating the
         star formation rate of the central halos. It should be calulated by
@@ -137,19 +109,20 @@ class cl_cib(object):
         """
         log10msub_min = 5
         if np.log10(mhalo) <= log10msub_min:
-            raise ValueError, "halo mass %d should be greater than subhalo mass \
-%d." % (np.log10(mhalo), log10msub_min)
+            raise ValueError("halo mass %d should be greater than subhalo mass \
+%d." % (np.log10(mhalo), log10msub_min))
         else:
             logmh = np.log10(mhalo)
             logmsub = np.arange(log10msub_min, logmh, 0.1)
             return 10**logmsub
 
-    def djsub_dlnMh(self):
+    def djsub_dlogMh(self):
+        # differential emissivty for central halos
         """
         for subhalos, the SFR is calculated in two ways and the minimum of the
         two is assumed.
         """
-        fsub = 0.134
+        fsub = 0.134*np.log(10)
         a = np.zeros((len(self.snu_eff[:, 0]), len(self.mh), len(self.z)))
         # sfrmh = self.sfr(mh)
         for i in range(len(self.mh)):
@@ -169,9 +142,9 @@ class cl_cib(object):
 
     def onehalo_int(self):
         Cl_1h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))
-        dj_cen, dj_sub = self.djc_dlnMh(), self.djsub_dlnMh()
+        dj_cen, dj_sub = self.djc_dlogMh(), self.djsub_dlogMh()
         u = self.unfw
-        c_light = 299792458.0e-3
+        # c_light = 299792458.0e-3
         dchi_dz = (c_light/(self.cosmo.H0*np.sqrt((self.cosmo.Om0)*(1+self.z)**3 + self.cosmo.Ode0))).value
         geo = dchi_dz/(self.cosmo.comoving_distance(self.z).value*(1+self.z))**2
         dm = np.log10(self.mh[1] / self.mh[0])
@@ -183,14 +156,14 @@ class cl_cib(object):
                          dj_sub*u[:, i, :]**2) / self.hmfmz
                 # intg_mh = intg.simps(rest1, dx=dm, axis=1, even='avg')
                 intg_mh = intg.simps(rest1, x=np.log10(self.mh), axis=1, even='avg')
-                # intg_mh[:, :5] = 0  # cutting contribn from 0 to 0.5 redshift
                 intg_z = intg.simps(intg_mh*geo, x=self.z, axis=-1, even='avg')
                 Cl_1h[f, :, i] = fcxcc[f]*intg_z*fcxcc
         return Cl_1h
 
     def J_nu(self):
+        # bias weighted total emissivity
         Jnu = np.zeros((self.nfreq, len(self.z), len(self.ell)))
-        dj_cen, dj_sub = self.djc_dlnMh(), self.djsub_dlnMh()
+        dj_cen, dj_sub = self.djc_dlogMh(), self.djsub_dlogMh()
         u = self.unfw
         dm = np.log10(self.mh[1] / self.mh[0])
         for i in range(len(self.ell)):
@@ -215,20 +188,36 @@ class cl_cib(object):
             Cl_2h[f, :, :] = fcxcc[f]*intg_z*fcxcc[:, None]
         return Cl_2h
 
-    def J_nu_iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
-        # integrated differential emissivity over all the masses
-        dj_cen, dj_sub = self.djc_dlnMh(), self.djsub_dlnMh()
+    def J_nu_iv(self):
+        """
+        integrated differential emissivity over all the masses: used to calculate cib specific intensty.
+        please note that if you want to calculate cib specific intensity for some other instrument
+        like ALMA, you will need to calculate the differential emissivity for the
+        observed frequency of that instrument. This will also involve calculating the CIB SED
+        bandpassed through that instrument's filters and also applying corresponding color corrections.
+        """
+        
+        dj_cen, dj_sub = self.djc_dlogMh(), self.djsub_dlogMh()
         intgral1 = dj_cen+dj_sub
         # dm = np.log10(self.mh[1] / self.mh[0])
         # return intg.simps(intgral1, dx=dm, axis=1, even='avg')
         return intg.simps(intgral1, x=np.log10(self.mh), axis=1, even='avg')
 
-    def Iv(self):  # , Meffmax, etamax, sigmaMh, alpha):
+    def Iv(self):
+        # cib specific intensty
+        """
+        integrated differential emissivity over all the masses: used to calculate cib specific intensty.
+        please note that if you want to calculate cib specific intensity for some other instrument
+        like ALMA, you will need to calculate the differential emissivity for the
+        observed frequency of that instrument. This will also involve calculating the CIB SED
+        bandpassed through that instrument's filters and also applying corresponding color corrections.
+        """
+
         jnu = self.J_nu_iv()
         dchi_dz = (c_light/(self.cosmo.H0*np.sqrt((self.cosmo.Om0)*(1+self.z)**3 + self.cosmo.Ode0))).value
         intgral2 = dchi_dz*jnu/(1+self.z)
-        result = self.cc_cibmean*self.freq_Iv*intg.simps(intgral2, x=self.z,
-                                                         axis=-1, even='avg')
+        result = self.cc_cibmean*self.freq_cibmean*intg.simps(intgral2, x=self.z,
+                                                              axis=-1, even='avg')
         result *= ghz*nW/w_jy  # nWm^2/sr
         return result
 
