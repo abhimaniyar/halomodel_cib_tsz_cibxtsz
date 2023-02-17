@@ -74,7 +74,6 @@ class data_var(object):
             frequency channels. If you want to calculate the Hershel/Spire
             power spectra, use corresponding files in the data folder.
             """
-            snuaddr = self.exp['snuaddr']
             if name == 'Planck':
                 snuaddr = 'data_files/filtered_snu_planck.fits'
                 hdulist = fits.open(snuaddr)
