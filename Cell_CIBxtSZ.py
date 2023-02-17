@@ -27,7 +27,7 @@ class cl_cibxtsz(object):
         return djcen_prime, djsub_prime
 
     def onehalo(self):
-        if self.dv.exp['name'] == 'Planck':
+        if self.cib.dv.exp['name'] == 'Planck':
             """
             Kcmb_MJy are factors for Planck frequency channels to convert
             units from Kcmb to MJy
@@ -35,7 +35,7 @@ class cl_cibxtsz(object):
             Kcmb_MJy = np.array([244.1, 371.74, 483.69, 287.45, 58.04, 2.27])
         else:
             print ("factors to convert units from Kcmb to MJy for %s experiment are not provided." +
-                   "So the final units here will be Kcmb*Jy/sr" % (self.dv.exp['name']))
+                   "So the final units here will be Kcmb*Jy/sr" % (self.cib.dv.exp['name']))
             Kcmb_MJy = np.ones(len(self.nu))
 
         cl_1h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))
@@ -60,7 +60,7 @@ class cl_cibxtsz(object):
     # otherwise the units are Kcmb*Jy/sr
 
     def twohalo(self):
-        if self.dv.exp['name'] == 'Planck':
+        if self.cib.dv.exp['name'] == 'Planck':
             """
             Kcmb_MJy are factors for Planck frequency channels to convert
             units from Kcmb to MJy
@@ -68,7 +68,7 @@ class cl_cibxtsz(object):
             Kcmb_MJy = np.array([244.1, 371.74, 483.69, 287.45, 58.04, 2.27])
         else:
             print ("factors to convert units from Kcmb to MJy for %s experiment are not provided." +
-                   "So the final units here will be Kcmb*Jy/sr" % (self.dv.exp['name']))
+                   "So the final units here will be Kcmb*Jy/sr" % (self.cib.dv.exp['name']))
             Kcmb_MJy = np.ones(len(self.nu))
 
         cl_2h = np.zeros((self.nfreq, self.nfreq, len(self.ell)))

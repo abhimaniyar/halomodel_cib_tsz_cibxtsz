@@ -173,10 +173,10 @@ class data_var(object):
             lnx = np.linspace(-6, 1, xstep)
             self.x = 10**lnx
             # self.nutsz = np.array([100., 143., 217., 353., 545., 857.])*ghz
-            self.nutsz = self.freqcib*ghz
+            self.nutsz = np.array(self.freqcib)*ghz
             #nus = ['100', '143', '217', '353', '545', '857']
             self.delta_h_tsz = 500  # 500 # 200
-            self.B = 3.28  # 1.41
+            self.B = 1.5  # 1.41
             self.m500 = np.repeat(self.mass[..., np.newaxis], len(self.z),
                                   axis=1)
 
