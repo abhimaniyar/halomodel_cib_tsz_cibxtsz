@@ -18,3 +18,4 @@ def plot_Cell(ell, one_halo, two_halo, nu1, nu2, freq, mod):
     ax.set_ylabel(r'$\mathrm{C_l}\: [\mathrm{Jy}^2\: \mathrm{sr}^{-1}]$', fontsize=14)
     ax.set_xlabel(r'Multipole' r'$\;\ell$', fontsize=14)
     ax.set_title(r''+mod+' %s x %s GHz' % (freq[nu1], freq[nu2]))
+    plt.grid(which='both')
