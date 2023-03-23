@@ -68,7 +68,8 @@ class data_var(object):
             """
             The effective SEDs for the CIB for Planck (100, 143, 217, 353, 545,
             857) and
-            IRAS (3000) GHz frequencies.
+            IRAS (3000) GHz frequencies. Taking out the IRAS SEDs and that is
+            why snu[:-1, :] in the last line here.
             Here we are shwoing the CIB power spectra corressponding to the
             Planck
             frequency channels. If you want to calculate the Hershel/Spire
@@ -82,7 +83,7 @@ class data_var(object):
                 hdulist.close()
                 fsnu_eff = interp1d(redshifts, snu_eff, kind='linear',
                                     bounds_error=False, fill_value="extrapolate")
-                self.snu = fsnu_eff(self.z)
+                self.snu = fsnu_eff(self.z)[:-1, :]
             elif name == 'Herschel-spire':
                 snuaddr = 'data_files/filtered_snu_spire.fits'
                 hdulist = fits.open(snuaddr)
@@ -150,22 +151,22 @@ class data_var(object):
                    "profile " +
                    "for given mass and redshift for CIB calculations.")
     
-            self.hmf = np.zeros((nm, nz))
-            self.u_nfw = np.zeros((nm, len(self.k_array[:, 0]), nz))
-            self.bias_m_z = np.zeros((nm, nz))
+            self.hmf_cib = np.zeros((nm, nz))
+            self.u_nfw_cib = np.zeros((nm, len(self.k_array[:, 0]), nz))
+            self.bias_m_z_cib = np.zeros((nm, nz))
             delta_h = deltah_cib
     
             for r in range(nz):
                 pkz = pkinterpz(self.z[r])
                 instance = hmf_unfw_bias.h_u_b(k, pkz, self.z[r],
                                                cosmo, delta_h, self.mass)
-                self.hmf[:, r] = instance.dn_dlogm()
+                self.hmf_cib[:, r] = instance.dn_dlogm()
                 # nfw_u[:, :, r] = instance.nfwfourier_u()
-                self.bias_m_z[:, r] = instance.b_nu()
+                self.bias_m_z_cib[:, r] = instance.b_nu()
                 instance2 = hmf_unfw_bias.h_u_b(self.k_array[:, r],
                                                 self.Pk_int[:, r], self.z[r],
                                                 cosmo, delta_h, self.mass)
-                self.u_nfw[:, :, r] = instance2.nfwfourier_u()
+                self.u_nfw_cib[:, :, r] = instance2.nfwfourier_u()
 
         if self.exp['do_tsz'] == 1 or self.exp['do_cibxtsz'] == 1:
             # ############################### tSZ params #####################
@@ -183,30 +184,30 @@ class data_var(object):
             print ("Calculating the halo mass function, halo bias, nfw " +
                    "profile " +
                    "for given mass and redshift for tSZ calculations.")
-            self.hmf = np.zeros((len(self.m500), nz))
-            self.bias_m_z = np.zeros((len(self.m500[:, 0]), nz))
-            self.u_nfw = np.zeros((nm, len(self.k_array[:, 0]), nz))
+            self.hmf_tsz = np.zeros((len(self.m500), nz))
+            self.bias_m_z_tsz = np.zeros((len(self.m500[:, 0]), nz))
+            self.u_nfw_tsz = np.zeros((nm, len(self.k_array[:, 0]), nz))
             delta_h = self.delta_h_tsz
 
             for r in range(nz):
                 pkz = pkinterpz(self.z[r])
                 instance = hmf_unfw_bias.h_u_b(k, pkz, self.z[r],
                                                cosmo, delta_h, self.m500[:, 0])
-                self.hmf[:, r] = instance.dn_dlogm()
+                self.hmf_tsz[:, r] = instance.dn_dlogm()
                 # nfw_u[:, :, r] = instance.nfwfourier_u()
-                self.bias_m_z[:, r] = instance.b_nu()
+                self.bias_m_z_tsz[:, r] = instance.b_nu()
                 instance2 = hmf_unfw_bias.h_u_b(self.k_array[:, r],
                                                 self.Pk_int[:, r], self.z[r],
                                                 cosmo, delta_h, self.mass)
-                self.u_nfw[:, :, r] = instance2.nfwfourier_u()
+                self.u_nfw_tsz[:, :, r] = instance2.nfwfourier_u()
 
         if self.exp['do_cibxtsz'] == 1:
             # mass definition here is m500 for both the CIB and tSZ. The best fit values
             # for CIB parameters change due to this.
 
-            self.snu = self.snu[:-1, :]
-            self.cc = self.exp['cc'][:-1]
-            self.fc = self.exp['fc'][:-1]
+            # self.snu = self.snu  #[:-1, :]
+            # self.cc = self.exp['cc']#[:-1]
+            # self.fc = self.exp['fc']#[:-1]
             # ################################ cib x tSZ #####################
             cibxtszparresaddr = 'data_files/one_halo_bestfit_allcomponents_lognormal_sigevol_highk_deltah500_onlyautoshotpar_no3000_gaussian600n857n1200_planck_spire_hmflog10.txt'
             self.Meffmax, self.etamax, self.sigmaMh, self.tau = np.loadtxt(cibxtszparresaddr)[:4, 0]
