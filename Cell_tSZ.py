@@ -15,9 +15,9 @@ class cl_tsz(object):
         self.x = self.dv.x
         self.ell = self.dv.ell
         self.B = self.dv.B  # mass bias
-        self.hmf = self.dv.hmf
+        self.hmf = self.dv.hmf_tsz
         self.power = self.dv.Pk_int
-        self.biasmz = self.dv.bias_m_z
+        self.biasmz = self.dv.bias_m_z_tsz
         self.M_tilde = self.m/self.B
 
     def f_nu(self):
