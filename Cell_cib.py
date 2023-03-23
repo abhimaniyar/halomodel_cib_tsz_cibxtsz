@@ -106,9 +106,9 @@ class cl_cib(object):
     def subhmf(self, mhalo, ms):
         # subhalo mass function from (https://arxiv.org/pdf/0909.1325.pdf)
         # update: arxiv version, it turns out, has not been updated and has
-        # wrong coefficient to multiply in front. We currently have 0.13*log(10)
+        # wrong coefficient to multiply in front. We had 0.13*log(10)
         # but instead, we should have 0.30*log(10)
-        return 0.13*(ms/mhalo)**(-0.7)*np.exp(-9.9*(ms/mhalo)**2.5)*np.log(10)*np.log(10)
+        return 0.3*(ms/mhalo)**(-0.7)*np.exp(-9.9*(ms/mhalo)**2.5)*np.log(10)
 
     def msub(self, mhalo):
         """
