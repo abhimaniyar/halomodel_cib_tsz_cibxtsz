@@ -20,17 +20,22 @@ class cl_cib(object):
         # i.e. snu_eff[:, len(z)]
         self.ell = self.dv.ell
         self.cosmo = cosmo
-        self.Meffmax = self.dv.Meffmax
-        self.etamax = self.dv.etamax
-        self.sigmaMh = self.dv.sigmaMh
-        self.tau = self.dv.tau
+        # self.Meffmax = self.dv.Meffmax
+        # self.etamax = self.dv.etamax
+        # self.sigmaMh = self.dv.sigmaMh
+        # self.tau = self.dv.tau
         self.cc = self.dv.cc
         self.fc = self.dv.fc
-        self.hmfmz = self.dv.hmf
-        self.unfw = self.dv.u_nfw
-        self.bmz = self.dv.bias_m_z
-        self.nfreq = len(self.dv.freqcib)  # len(self.snu_eff[:, 0])
+        self.hmfmz = self.dv.hmf_cib
+        self.unfw = self.dv.u_nfw_cib
+        self.bmz = self.dv.bias_m_z_cib
+        self.nfreq = len(self.snu_eff[:, 0])  # len(self.dv.freqcib)  # len(self.snu_eff[:, 0])
         self.sig_z = np.array([max(self.z_c - r, 0.) for r in self.z])
+        
+        cibparresaddr = 'data_files/one_halo_bestfit_allcomponents_lognormal_sigevol_1p5zcutoff_nospire_fcpl_onlyautoshotpar_no3000_gaussian600n857n1200_planck_spire_hmflog10.txt'
+        self.Meffmax, self.etamax, self.sigmaMh, self.tau = np.loadtxt(cibparresaddr)[:4, 0]
+        # self.Meffmax, self.etamax, self.sigmaMh, self.tau = 8753289339381.791, 0.4028353504978569, 1.807080723258688, 1.2040244128818796
+
         self.sigpow = self.sigmaMh - self.tau*self.sig_z
         self.cc_cibmean = self.dv.cc_cibmean
         self.freq_cibmean = self.dv.freq_cibmean
@@ -100,7 +105,10 @@ class cl_cib(object):
 
     def subhmf(self, mhalo, ms):
         # subhalo mass function from (https://arxiv.org/pdf/0909.1325.pdf)
-        return 0.13*(ms/mhalo)**(-0.7)*np.exp(-9.9*(ms/mhalo)**2.5)*np.log(10)
+        # update: arxiv version, it turns out, has not been updated and has
+        # wrong coefficient to multiply in front. We currently have 0.13*log(10)
+        # but instead, we should have 0.30*log(10)
+        return 0.13*(ms/mhalo)**(-0.7)*np.exp(-9.9*(ms/mhalo)**2.5)*np.log(10)*np.log(10)
 
     def msub(self, mhalo):
         """
