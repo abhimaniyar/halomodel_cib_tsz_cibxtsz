@@ -213,3 +213,20 @@ class data_var(object):
             self.Meffmax, self.etamax, self.sigmaMh, self.tau = np.loadtxt(cibxtszparresaddr)[:4, 0]
             # self.Meffmax_cross, self.etamax_cross, self.sigmaMh_cross = 6962523672799.227, 0.4967291547804018, 1.8074450009861387
             # self.tau_cross = 1.2016980179374213
+
+
+    def L_IR(self, snu_eff, freq_rest, redshifts):
+        # freq_rest *= ghz  # GHz to Hz
+        fmax = 3.7474057250000e13  # 8 micros in Hz
+        fmin = 2.99792458000e11  # 1000 microns in Hz
+        no = 10000
+        fint = np.linspace(np.log10(fmin), np.log10(fmax), no)
+        L_IR_eff = np.zeros((len(redshifts)))
+        dfeq = np.array([0.]*no, dtype=float)
+        for i in range(len(redshifts)):
+            L_feq = snu_eff[:, i]*4*np.pi*(Mpc_to_m*cosmo.luminosity_distance(redshifts[i]).value)**2/(w_jy*(1+redshifts[i]))
+            Lint = np.interp(fint, np.log10(np.sort(freq_rest[:, i])),
+                             L_feq[::-1])
+            dfeq = 10**(fint)
+            L_IR_eff[i] = np.trapz(Lint, dfeq)
+        return L_IR_eff
