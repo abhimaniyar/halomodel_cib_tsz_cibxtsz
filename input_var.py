@@ -210,7 +210,7 @@ class data_var(object):
             # self.fc = self.exp['fc']#[:-1]
             # ################################ cib x tSZ #####################
             cibxtszparresaddr = 'data_files/one_halo_bestfit_allcomponents_lognormal_sigevol_highk_deltah500_onlyautoshotpar_no3000_gaussian600n857n1200_planck_spire_hmflog10.txt'
-            self.Meffmax, self.etamax, self.sigmaMh, self.tau = np.loadtxt(cibxtszparresaddr)[:4, 0]
+            # self.Meffmax, self.etamax, self.sigmaMh, self.tau = np.loadtxt(cibxtszparresaddr)[:4, 0]
             # self.Meffmax_cross, self.etamax_cross, self.sigmaMh_cross = 6962523672799.227, 0.4967291547804018, 1.8074450009861387
             # self.tau_cross = 1.2016980179374213
 
