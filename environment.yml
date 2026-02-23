@@ -1,0 +1,12 @@
+name: halomodel
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - matplotlib
+  - pip
+  - pip:
+    - colossus

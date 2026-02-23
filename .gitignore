@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Icon?
+
+# Generated output
+*.png
+*.pdf
+
+# Original repo (large, already tracked in its own git)
+original/
+
