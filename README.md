@@ -1,5 +1,9 @@
 #  halomodel_cib_tsz_cibxtsz
 
+> **Note:** A rewritten version of this code is available on the [`v2` branch](https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/tree/v2). It is a cleaner, modular Python package with `pip`-installable dependencies (no pre-computed P(k) files), component selection, and a simple `compute_spectra()` interface. See the [v2 README](https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/tree/v2#readme) for details.
+>
+> The original code below (also tagged as [`v1.0`](https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/releases/tag/v1.0)) is preserved as-is for reproducibility.
+
 Computes the CIB, tSZ, and CIB-tSZ correlation power spectrum using a newly developed halo model
 
 * This code is based on a newly developed halo model for the CIB and CIB-tSZ correlation with just four physical model parameters.
