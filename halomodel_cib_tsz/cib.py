@@ -91,7 +91,7 @@ class CIBModel:
 
         # Redshift-dependent sigma width for M > Meff
         self.z_c = config.Z_C
-        self.sig_z = np.array([max(self.z_c - zi, 0.0) for zi in self.z])
+        self.sig_z = np.maximum(self.z_c - self.z, 0.0)
         self.sigpow = self.sigma_Mh - self.tau * self.sig_z  # (n_z,)
 
         # Pre-compute halo quantities
@@ -125,18 +125,15 @@ class CIBModel:
         eta : ndarray, shape ``(n_M, n_z)``
         """
         M = np.atleast_1d(M)
-        lnM = np.log(M)
-        lnMeff = np.log(self.Meff)
-        dlnM2 = (lnM - lnMeff)**2
+        dlnM2 = (np.log(M) - np.log(self.Meff))**2  # (n_M,)
 
-        result = np.zeros((len(M), self.n_z))
-        for i, m in enumerate(M):
-            if m < self.Meff:
-                sigma = self.sigma_Mh
-            else:
-                sigma = self.sigpow  # (n_z,) — varies with z
-            result[i, :] = self.eta_max * np.exp(-dlnM2[i] / (2.0 * sigma**2))
-        return result
+        # sigma_Mh (scalar) for M < Meff, sigpow (n_z,) for M >= Meff
+        sigma = np.where(
+            M[:, None] < self.Meff,
+            self.sigma_Mh,
+            self.sigpow[None, :]
+        )  # (n_M, n_z)
+        return self.eta_max * np.exp(-dlnM2[:, None] / (2.0 * sigma**2))
 
     def bar(self, M: np.ndarray) -> np.ndarray:
         """
@@ -194,10 +191,7 @@ class CIBModel:
         rest = self.hmf_arr * sfr_cen * (1.0 + self.z) * chi**2 / config.KC
         # rest shape: (n_mass, n_z)
 
-        dj_c = np.zeros((self.nfreq, self.n_mass, self.n_z))
-        for f in range(self.nfreq):
-            dj_c[f, :, :] = rest * self.snu[f, :]
-        return dj_c
+        return rest[None, :, :] * self.snu[:, None, :]  # (n_freq, n_mass, n_z)
 
     def _djsub_dlogMh(self) -> np.ndarray:
         """
@@ -239,10 +233,9 @@ class CIBModel:
             integrand = subhmf[:, None] * sfr_sub / config.KC  # (n_ms, n_z)
             intgn = integrate.simpson(integrand, dx=dlnmsub, axis=0)  # (n_z,)
 
-            # Build emissivity
-            for f in range(self.nfreq):
-                dj_sub[f, i, :] = (self.snu[f, :] * self.hmf_arr[i, :] *
-                                   (1.0 + self.z) * intgn * chi**2)
+            # Build emissivity — broadcast over all frequencies
+            dj_sub[:, i, :] = (self.snu * self.hmf_arr[i, :] *
+                               (1.0 + self.z) * intgn * chi**2)
 
         return dj_sub
 

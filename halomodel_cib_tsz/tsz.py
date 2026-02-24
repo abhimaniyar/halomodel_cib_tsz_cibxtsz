@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 
 import numpy as np
-from scipy import integrate
 
 from . import config
 from .utils import simps
@@ -166,13 +165,12 @@ class tSZModel:
         # Pressure normalisation C in SI (J/m^3)
         C_t = self._C_factor(self.z) * config.eV_to_J / config.cm_to_m**3  # (n_mass, n_z)
 
-        y_ell = np.zeros((self.n_ell, self.n_mass, self.n_z))
-
-        for i in range(self.n_ell):
-            for j in range(self.n_mass):
-                l_over_l500 = self.ell[i] / l500[j, :]  # (n_z,)
-                y_int = np.interp(np.log(l_over_l500), self._yl_lnx, self._yl_lny)
-                y_ell[i, j, :] = np.exp(y_int)
+        # Vectorised: compute all (ell, mass, z) ratios at once
+        l_over_l500 = self.ell[:, None, None] / l500[None, :, :]  # (n_ell, n_mass, n_z)
+        y_int_flat = np.interp(
+            np.log(l_over_l500).ravel(), self._yl_lnx, self._yl_lny
+        )
+        y_ell = np.exp(y_int_flat).reshape(self.n_ell, self.n_mass, self.n_z)
 
         return self.P_0 * y_ell * fact * C_t  # (n_ell, n_mass, n_z), dimensionless
 
@@ -202,27 +200,20 @@ class tSZModel:
         else:
             Kcmb_MJy = np.ones(self.nfreq)
 
-        Cl_1h = np.zeros((self.nfreq, self.nfreq, self.n_ell))
-
         # dVc/dz = c * chi^2 / (H0 * E(z))
         dVc_dz = (config.c_light * self.hm._chi**2 /
                   (self.hm.H0 * self.hm.E_z(self.z)))  # (n_z,)
 
         y_l = self._y_ell      # (n_ell, n_mass, n_z)
-        y_l2 = y_l**2
         hmf = self.hmf_arr     # (n_mass, n_z)
 
         # ∫ dlog10(M) hmf * y_l^2, then ∫ dz dVc_dz * [result]
-        intgral1 = hmf * y_l2  # (n_ell, n_mass, n_z)
+        intgral1 = hmf * y_l**2  # (n_ell, n_mass, n_z)
         intgn1 = simps(intgral1, self.log10_mass, axis=1)  # (n_ell, n_z)
-        intgral2 = dVc_dz * intgn1  # (n_ell, n_z)
-        res = simps(intgral2, self.z, axis=1)  # (n_ell,)
+        res = simps(dVc_dz * intgn1, self.z, axis=1)  # (n_ell,)
 
         fnu = self._f_nu * 1e6 * Kcmb_MJy  # (n_freq,)
-        for f in range(self.nfreq):
-            Cl_1h[f, :, :] = np.outer(fnu, res) * fnu[f]
-
-        return Cl_1h
+        return fnu[:, None, None] * fnu[None, :, None] * res[None, None, :]
 
     def cl_2h(self) -> np.ndarray:
         """
@@ -238,8 +229,6 @@ class tSZModel:
         else:
             Kcmb_MJy = np.ones(self.nfreq)
 
-        Cl_2h = np.zeros((self.nfreq, self.nfreq, self.n_ell))
-
         dVc_dz = (config.c_light * self.hm._chi**2 /
                   (self.hm.H0 * self.hm.E_z(self.z)))
 
@@ -248,17 +237,11 @@ class tSZModel:
         b = self.bias_arr      # (n_mass, n_z)
 
         # ∫ dlog10(M) hmf * b * y_l → squared
-        intgrl = hmf * b * y_l  # (n_ell, n_mass, n_z)
-        res_m = simps(intgrl, self.log10_mass, axis=1)  # (n_ell, n_z)
-        ylhmfbias2 = res_m**2   # (n_ell, n_z)
+        res_m = simps(hmf * b * y_l, self.log10_mass, axis=1)  # (n_ell, n_z)
 
         # ∫ dz dVc_dz * P(k) * [hmf*b*y_l]^2
         Pk = self.hm._Pk_limber  # (n_ell, n_z)
-        intgrl2 = dVc_dz * Pk * ylhmfbias2  # (n_ell, n_z)
-        res = simps(intgrl2, self.z, axis=1)  # (n_ell,)
+        res = simps(dVc_dz * Pk * res_m**2, self.z, axis=1)  # (n_ell,)
 
         fnu = self._f_nu * 1e6 * Kcmb_MJy
-        for f in range(self.nfreq):
-            Cl_2h[f, :, :] = np.outer(fnu, res) * fnu[f]
-
-        return Cl_2h
+        return fnu[:, None, None] * fnu[None, :, None] * res[None, None, :]

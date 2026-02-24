@@ -169,11 +169,14 @@ class HaloModel:
         self._build_pk_interpolator()
 
         # P(k) at Limber wavenumbers: k = (ell + 0.5) / chi
-        self._Pk_limber = np.zeros((self.n_ell, self.n_z))
-        for i in range(self.n_ell):
-            k_limber = (self.ell[i] + 0.5) / self._chi
-            for j in range(self.n_z):
-                self._Pk_limber[i, j] = self._pk_interp_eval(k_limber[j], self.z[j])
+        k_limber_2d = (self.ell[:, None] + 0.5) / self._chi[None, :]  # (n_ell, n_z)
+        lnk_flat = np.log(np.clip(
+            k_limber_2d, self._pk_k_grid[0], self._pk_k_grid[-1]
+        )).ravel()
+        z_flat = np.tile(self.z, self.n_ell)
+        self._Pk_limber = np.exp(
+            self._pk_interp(lnk_flat, z_flat, grid=False)
+        ).reshape(self.n_ell, self.n_z)
 
     # ── P(k,z) interpolation ────────────────────────────────────────────
 
