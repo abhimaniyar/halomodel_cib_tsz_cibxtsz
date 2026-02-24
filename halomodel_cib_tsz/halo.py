@@ -92,6 +92,12 @@ class HaloModel:
         ``(ell_min, ell_max)``.
     n_ell : int
         Number of log-spaced multipoles.
+    mass_array : ndarray, optional
+        Custom mass grid in M_sun (overrides mass_range/n_mass).
+    z_array : ndarray, optional
+        Custom redshift grid (overrides z_range/n_z).
+    ell_array : ndarray, optional
+        Custom multipole grid (overrides ell_range/n_ell).
 
     Attributes
     ----------
@@ -117,6 +123,9 @@ class HaloModel:
         n_z: int = config.N_Z,
         ell_range: tuple[float, float] = config.ELL_RANGE,
         n_ell: int = config.N_ELL,
+        mass_array: np.ndarray | None = None,
+        z_array: np.ndarray | None = None,
+        ell_array: np.ndarray | None = None,
     ) -> None:
         # Set colossus cosmology (global state)
         self._cosmo = cosmology.setCosmology(cosmo_name)
@@ -130,14 +139,26 @@ class HaloModel:
         self.bias_model = bias_model
         self.conc_model = conc_model
 
-        # Build grids
-        self.mass = np.geomspace(mass_range[0], mass_range[1], n_mass)
+        # Build grids — use custom arrays if provided, else generate defaults
+        if mass_array is not None:
+            self.mass = np.asarray(mass_array, dtype=float)
+        else:
+            self.mass = np.geomspace(mass_range[0], mass_range[1], n_mass)
         self.log10_mass = np.log10(self.mass)
-        self.z = np.linspace(z_range[0], z_range[1], n_z)
-        self.ell = np.geomspace(ell_range[0], ell_range[1], n_ell)
-        self.n_mass = n_mass
-        self.n_z = n_z
-        self.n_ell = n_ell
+
+        if z_array is not None:
+            self.z = np.asarray(z_array, dtype=float)
+        else:
+            self.z = np.linspace(z_range[0], z_range[1], n_z)
+
+        if ell_array is not None:
+            self.ell = np.asarray(ell_array, dtype=float)
+        else:
+            self.ell = np.geomspace(ell_range[0], ell_range[1], n_ell)
+
+        self.n_mass = len(self.mass)
+        self.n_z = len(self.z)
+        self.n_ell = len(self.ell)
 
         # Pre-compute cosmological distances
         self._chi = self.comoving_distance(self.z)          # [n_z] Mpc

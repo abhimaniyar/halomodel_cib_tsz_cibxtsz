@@ -264,7 +264,7 @@ class CIBModel:
             Subhalo mass function, same shape as *ms*.
         """
         x = ms / Mh
-        return 0.13 * x**(-0.7) * np.exp(-9.9 * x**2.5) * np.log(10)
+        return 0.3 * x**(-0.7) * np.exp(-9.9 * x**2.5) * np.log(10)
 
     # ── Power spectra ────────────────────────────────────────────────────
 
