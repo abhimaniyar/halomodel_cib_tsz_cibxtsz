@@ -4,9 +4,11 @@ SED loading and tSZ spectral function.
 Handles:
 - Planck HFI bandpass-filtered SEDs (FITS)
 - Herschel SPIRE bandpass-filtered SEDs (FITS)
-- Unfiltered Béthermin+2015 SED tables (TXT)
+- Unfiltered Béthermin et al. SED tables (TXT)
 - tSZ spectral function g(x)
 """
+
+from __future__ import annotations
 
 import os
 import re
@@ -19,9 +21,12 @@ from astropy.io import fits
 from . import config
 
 
-def load_planck_seds(z_grid):
+def load_planck_seds(z_grid: np.ndarray) -> np.ndarray:
     """
-    Load bandpass-filtered Planck HFI SEDs and interpolate to z_grid.
+    Load bandpass-filtered Planck HFI SEDs and interpolate to *z_grid*.
+
+    The SEDs are Béthermin et al. galaxy SED templates convolved with
+    Planck HFI bandpasses.
 
     Parameters
     ----------
@@ -30,7 +35,7 @@ def load_planck_seds(z_grid):
 
     Returns
     -------
-    snu : ndarray, shape (6, n_z)
+    snu : ndarray, shape ``(6, n_z)``
         Effective SED in Jy/L_sun for 6 Planck channels
         (100, 143, 217, 353, 545, 857 GHz). The 7th channel (3000/IRAS)
         is dropped.
@@ -49,9 +54,12 @@ def load_planck_seds(z_grid):
     return snu[:6, :]
 
 
-def load_spire_seds(z_grid):
+def load_spire_seds(z_grid: np.ndarray) -> np.ndarray:
     """
-    Load bandpass-filtered Herschel SPIRE SEDs and interpolate to z_grid.
+    Load bandpass-filtered Herschel SPIRE SEDs and interpolate to *z_grid*.
+
+    The SEDs are Béthermin et al. galaxy SED templates convolved with
+    SPIRE bandpasses.
 
     Parameters
     ----------
@@ -60,7 +68,7 @@ def load_spire_seds(z_grid):
 
     Returns
     -------
-    snu : ndarray, shape (3, n_z)
+    snu : ndarray, shape ``(3, n_z)``
         Effective SED in Jy/L_sun for 3 SPIRE channels (600, 857, 1200 GHz).
     """
     fpath = os.path.join(config.DATA_DIR, 'filtered_snu_spire.fits')
@@ -73,12 +81,15 @@ def load_spire_seds(z_grid):
     return f_interp(z_grid)
 
 
-def load_unfiltered_seds(freqs, z_grid):
+def load_unfiltered_seds(
+    freqs: list[float] | np.ndarray, z_grid: np.ndarray
+) -> np.ndarray:
     """
-    Load Béthermin+2015 unfiltered SED tables and evaluate at (freqs, z_grid).
+    Load Béthermin et al. unfiltered SED tables and evaluate at (*freqs*, *z_grid*).
 
-    Each table gives S_nu(lambda) at a specific redshift. We build a 2D
-    interpolator in (freq_GHz, z) and evaluate at the requested frequencies.
+    Each table gives S_nu(lambda) at a specific redshift. A 2D interpolator
+    in (freq_GHz, z) is built and evaluated at the requested frequencies.
+    No bandpass convolution is applied.
 
     Parameters
     ----------
@@ -89,11 +100,17 @@ def load_unfiltered_seds(freqs, z_grid):
 
     Returns
     -------
-    snu : ndarray, shape (n_freq, n_z)
+    snu : ndarray, shape ``(n_freq, n_z)``
         Effective SED in Jy/L_sun, normalised to L_IR.
     """
     sed_dir = os.path.join(config.DATA_DIR, 'TXT_TABLES_2015')
     file_list = glob.glob(os.path.join(sed_dir, 'EffectiveSED_B15_z*.txt'))
+
+    if not file_list:
+        raise FileNotFoundError(
+            f"No SED tables found in {sed_dir}. "
+            "Expected files matching 'EffectiveSED_B15_z*.txt'."
+        )
 
     # Extract redshifts and sort numerically
     z_file = []
@@ -141,24 +158,27 @@ def load_unfiltered_seds(freqs, z_grid):
     return interp2d(np.asarray(freqs), z_grid)
 
 
-def _L_IR(snu_eff, freq_rest, redshifts):
+def _L_IR(
+    snu_eff: np.ndarray, freq_rest: np.ndarray, redshifts: np.ndarray
+) -> np.ndarray:
     """
     Compute infrared luminosity for SED normalisation.
 
-    Integrates from 8µm (3.747e13 Hz) to 1000µm (2.998e11 Hz) in rest frame.
+    Integrates from 8 µm (3.747e13 Hz) to 1000 µm (2.998e11 Hz) in rest
+    frame.
 
     Parameters
     ----------
-    snu_eff : ndarray, shape (n_wav, n_z)
+    snu_eff : ndarray, shape ``(n_wav, n_z)``
         SED values in Jy/L_sun (unnormalised).
-    freq_rest : ndarray, shape (n_wav, n_z)
+    freq_rest : ndarray, shape ``(n_wav, n_z)``
         Rest-frame frequencies in Hz.
     redshifts : array_like
         Redshifts corresponding to each SED table.
 
     Returns
     -------
-    L_IR : ndarray, shape (n_z,)
+    L_IR : ndarray, shape ``(n_z,)``
         Infrared luminosity for each redshift.
     """
     from colossus.cosmology import cosmology
@@ -188,7 +208,9 @@ def _L_IR(snu_eff, freq_rest, redshifts):
     return L_IR
 
 
-def tsz_spectral_fn(nu_ghz, experiment='Planck'):
+def tsz_spectral_fn(
+    nu_ghz: np.ndarray | list[float], experiment: str = 'Planck'
+) -> np.ndarray:
     """
     tSZ spectral function g(x) = x * coth(x/2) - 4.
 
@@ -199,7 +221,8 @@ def tsz_spectral_fn(nu_ghz, experiment='Planck'):
     nu_ghz : array_like
         Frequencies in GHz.
     experiment : str
-        Experiment name. 'Planck' uses tabulated bandpassed values.
+        Experiment name. ``'Planck'`` uses tabulated bandpassed values;
+        all others use the analytical formula.
 
     Returns
     -------

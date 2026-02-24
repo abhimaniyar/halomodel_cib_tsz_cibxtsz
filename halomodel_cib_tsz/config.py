@@ -33,7 +33,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 
 # ── Default grids ────────────────────────────────────────────────────────────
 
-MASS_RANGE = (1e10, 1e16)
+MASS_RANGE = (1e10, 1e15)
 N_MASS = 100
 Z_RANGE = (0.005, 7.0)
 N_Z = 100

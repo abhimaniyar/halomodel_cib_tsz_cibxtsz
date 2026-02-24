@@ -4,7 +4,10 @@ tSZ halo model: pressure profile, y_ell, power spectra.
 Matches the physics of Cell_tSZ.py from the original code.
 """
 
+from __future__ import annotations
+
 import os
+
 import numpy as np
 from scipy import integrate
 
@@ -17,6 +20,9 @@ class tSZModel:
     """
     tSZ angular power spectrum model.
 
+    Uses the Arnaud+2010 generalised NFW pressure profile with a
+    pre-tabulated y_ell integration kernel.
+
     Parameters
     ----------
     halo_model : HaloModel
@@ -26,13 +32,27 @@ class tSZModel:
     experiment : str
         Experiment name (for bandpassed f_nu values).
     B : float
-        Hydrostatic mass bias factor. M_true = M_500 / B.
+        Hydrostatic mass bias factor. ``M_true = M_500 / B``.
     mdef : str
-        Mass definition (default '500c').
+        Mass definition (default ``'500c'``).
+
+    Raises
+    ------
+    ValueError
+        If *B* is not positive.
     """
 
-    def __init__(self, halo_model, freqs, experiment='Planck',
-                 B=config.TSZ_B, mdef='500c'):
+    def __init__(
+        self,
+        halo_model,
+        freqs: list[float],
+        experiment: str = 'Planck',
+        B: float = config.TSZ_B,
+        mdef: str = '500c',
+    ) -> None:
+        if B <= 0:
+            raise ValueError(f"Mass bias B must be > 0, got {B}")
+
         self.hm = halo_model
         self.freqs = freqs
         self.nfreq = len(freqs)
@@ -79,24 +99,32 @@ class tSZModel:
 
     # ── Pressure profile ─────────────────────────────────────────────────
 
-    def _r_delta(self, M, z):
+    def _r_delta(self, M: np.ndarray, z: float) -> np.ndarray:
         """R_500 of tilded mass in Mpc. M is the observed mass, M_tilde = M/B."""
         M_t = np.atleast_1d(M) / self.B
         return self.hm.r_delta(M_t, z, self.mdef)
 
-    def _ell_delta(self, z):
-        """ell_500 = d_A / r_500 for each (mass, z). Shape (n_mass, n_z)."""
+    def _ell_delta(self, z: float) -> np.ndarray:
+        """ell_500 = d_A / r_500 for each (mass, z). Shape ``(n_mass, n_z)``."""
         da = self.hm._da  # (n_z,)
         r500 = np.zeros((self.n_mass, self.n_z))
         for j in range(self.n_z):
             r500[:, j] = self._r_delta(self.mass, self.z[j])
         return da[None, :] / r500  # (n_mass, n_z)
 
-    def _C_factor(self, z):
+    def _C_factor(self, z: np.ndarray) -> np.ndarray:
         """
         Pressure normalisation C(M, z) from Arnaud+2010.
 
-        Returns shape (n_mass, n_z) in eV/cm^3.
+        Parameters
+        ----------
+        z : ndarray
+            Redshift grid.
+
+        Returns
+        -------
+        C : ndarray, shape ``(n_mass, n_z)``
+            Pressure normalisation in eV/cm^3.
         """
         M_t = self.M_tilde  # (n_mass,)
         Ez = self.hm.E_z(self.z)  # (n_z,)
@@ -109,22 +137,20 @@ class tSZModel:
 
     # ── y_ell from tabulated integration ─────────────────────────────────
 
-    def _load_y_ell_table(self):
+    def _load_y_ell_table(self) -> None:
         """Load pre-tabulated y_ell integration kernel."""
         fpath = os.path.join(config.DATA_DIR, 'y_ell_integration.txt')
         data = np.loadtxt(fpath)
         self._yl_lnx = data[:, 0]   # ln(ell/ell_500)
         self._yl_lny = data[:, 1]   # ln(integral value)
 
-    def _compute_y_ell(self):
+    def _compute_y_ell(self) -> np.ndarray:
         """
         Compute y_ell(ell, M, z) using pre-tabulated integration.
 
-        Following original Cell_tSZ.py y_ell_tab().
-
         Returns
         -------
-        y_ell : ndarray, shape (n_ell, n_mass, n_z)
+        y_ell : ndarray, shape ``(n_ell, n_mass, n_z)``
         """
         # r500 and ell_500 for each (mass, z)
         r500 = np.zeros((self.n_mass, self.n_z))
@@ -152,17 +178,23 @@ class tSZModel:
 
     # ── Power spectra ────────────────────────────────────────────────────
 
-    def f_nu(self):
-        """tSZ spectral function values."""
+    def f_nu(self) -> np.ndarray:
+        """
+        tSZ spectral function values.
+
+        Returns
+        -------
+        f_nu : ndarray, shape ``(n_freq,)``
+        """
         return self._f_nu
 
-    def cl_1h(self):
+    def cl_1h(self) -> np.ndarray:
         """
         1-halo tSZ power spectrum.
 
         Returns
         -------
-        Cl_1h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_1h : ndarray, shape ``(n_freq, n_freq, n_ell)``
             In Jy^2/sr (after Kcmb_MJy conversion).
         """
         if self.experiment == 'Planck':
@@ -192,13 +224,14 @@ class tSZModel:
 
         return Cl_1h
 
-    def cl_2h(self):
+    def cl_2h(self) -> np.ndarray:
         """
         2-halo tSZ power spectrum.
 
         Returns
         -------
-        Cl_2h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_2h : ndarray, shape ``(n_freq, n_freq, n_ell)``
+            In Jy^2/sr.
         """
         if self.experiment == 'Planck':
             Kcmb_MJy = config.PLANCK['Kcmb_MJy']

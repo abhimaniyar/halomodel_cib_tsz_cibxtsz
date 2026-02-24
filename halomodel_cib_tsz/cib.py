@@ -4,6 +4,10 @@ CIB halo model: star formation rate, emissivities, power spectra, mean intensity
 Matches the physics of Cell_cib.py and Inu_cib.py from the original code.
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
 import numpy as np
 from scipy import integrate
 
@@ -19,22 +23,37 @@ class CIBModel:
     ----------
     halo_model : HaloModel
         Pre-initialised halo model instance.
-    snu : ndarray, shape (n_freq, n_z)
+    snu : ndarray, shape ``(n_freq, n_z)``
         Effective SED in Jy/L_sun at each frequency and redshift.
     freqs : list of float
         Observed frequencies in GHz.
-    cc : ndarray
+    cc : array_like
         Color corrections per frequency.
-    fc : ndarray
+    fc : array_like
         Flux calibration factors per frequency.
     params : dict, optional
-        CIB model parameters: {Meff, eta_max, sigma_Mh, tau}.
+        CIB model parameters: ``{Meff, eta_max, sigma_Mh, tau}``.
+        If *None*, uses default for the given *mdef*.
     mdef : str
-        Mass definition (default '200c').
+        Mass definition (default ``'200c'``).
+
+    Raises
+    ------
+    ValueError
+        If *snu* shape is inconsistent with *freqs* and halo_model grids,
+        or if *params* is missing required keys.
     """
 
-    def __init__(self, halo_model, snu, freqs, cc, fc,
-                 params=None, mdef='200c'):
+    def __init__(
+        self,
+        halo_model,
+        snu: np.ndarray,
+        freqs: list[float],
+        cc: np.ndarray,
+        fc: np.ndarray,
+        params: Optional[dict] = None,
+        mdef: str = '200c',
+    ) -> None:
         self.hm = halo_model
         self.snu = snu              # (n_freq, n_z)
         self.freqs = freqs
@@ -42,6 +61,16 @@ class CIBModel:
         self.cc = np.asarray(cc)
         self.fc = np.asarray(fc)
         self.mdef = mdef
+
+        # Validate SED shape
+        if snu.shape[0] != self.nfreq:
+            raise ValueError(
+                f"snu has {snu.shape[0]} frequencies but freqs has {self.nfreq}"
+            )
+        if snu.shape[1] != halo_model.n_z:
+            raise ValueError(
+                f"snu has {snu.shape[1]} z-points but halo_model has {halo_model.n_z}"
+            )
 
         # Model parameters
         if params is None:
@@ -79,18 +108,21 @@ class CIBModel:
 
     # ── Star formation model ─────────────────────────────────────────────
 
-    def eta(self, M):
+    def eta(self, M: np.ndarray) -> np.ndarray:
         """
         SFR efficiency eta(M, z) — log-normal with asymmetric width.
+
+        For M < M_eff, uses fixed width ``sigma_Mh``. For M >= M_eff, uses
+        a redshift-dependent width ``sigma_Mh - tau * max(z_c - z, 0)``.
 
         Parameters
         ----------
         M : array_like
-            Halo mass in M_sun. Shape (n_M,).
+            Halo mass in M_sun, shape ``(n_M,)``.
 
         Returns
         -------
-        eta : ndarray, shape (n_M, n_z)
+        eta : ndarray, shape ``(n_M, n_z)``
         """
         M = np.atleast_1d(M)
         lnM = np.log(M)
@@ -106,13 +138,19 @@ class CIBModel:
             result[i, :] = self.eta_max * np.exp(-dlnM2[i] / (2.0 * sigma**2))
         return result
 
-    def bar(self, M):
+    def bar(self, M: np.ndarray) -> np.ndarray:
         """
         Baryonic accretion rate (Fakhouri+2010).
 
+        Parameters
+        ----------
+        M : array_like
+            Halo mass in M_sun, shape ``(n_M,)``.
+
         Returns
         -------
-        BAR : ndarray, shape (n_M, n_z) in M_sun/yr.
+        BAR : ndarray, shape ``(n_M, n_z)``
+            Baryonic accretion rate in M_sun/yr.
         """
         M = np.atleast_1d(M)
         fb = self.hm.baryon_fraction(self.z)  # scalar for LCDM
@@ -121,25 +159,33 @@ class CIBModel:
         b = (M / 1.0e12)**1.1  # (n_M,)
         return np.outer(b, a) * fb  # (n_M, n_z)
 
-    def sfr(self, M):
+    def sfr(self, M: np.ndarray) -> np.ndarray:
         """
         Star formation rate SFR(M,z) = eta(M,z) * BAR(M,z).
 
+        Parameters
+        ----------
+        M : array_like
+            Halo mass in M_sun, shape ``(n_M,)``.
+
         Returns
         -------
-        sfr : ndarray, shape (n_M, n_z) in M_sun/yr.
+        sfr : ndarray, shape ``(n_M, n_z)``
+            Star formation rate in M_sun/yr.
         """
         return self.eta(M) * self.bar(M)
 
     # ── Emissivities ─────────────────────────────────────────────────────
 
-    def _djc_dlogMh(self):
+    def _djc_dlogMh(self) -> np.ndarray:
         """
-        Central halo emissivity: dn/dlogM * SFR((1-fsub)*M) * (1+z) * chi^2 / KC * snu.
+        Central halo emissivity.
+
+        ``dn/dlogM * SFR((1-fsub)*M) * (1+z) * chi^2 / KC * snu``
 
         Returns
         -------
-        dj_c : ndarray, shape (n_freq, n_mass, n_z)
+        dj_c : ndarray, shape ``(n_freq, n_mass, n_z)``
         """
         fsub = config.F_SUB
         chi = self.hm._chi  # (n_z,) Mpc
@@ -153,13 +199,13 @@ class CIBModel:
             dj_c[f, :, :] = rest * self.snu[f, :]
         return dj_c
 
-    def _djsub_dlogMh(self):
+    def _djsub_dlogMh(self) -> np.ndarray:
         """
         Subhalo emissivity with min(SFR_I, SFR_II) prescription.
 
         Returns
         -------
-        dj_sub : ndarray, shape (n_freq, n_mass, n_z)
+        dj_sub : ndarray, shape ``(n_freq, n_mass, n_z)``
         """
         fsub = config.F_SUB
         chi = self.hm._chi  # (n_z,)
@@ -201,24 +247,35 @@ class CIBModel:
         return dj_sub
 
     @staticmethod
-    def _subhalo_mf(Mh, ms):
+    def _subhalo_mf(Mh: float, ms: np.ndarray) -> np.ndarray:
         """
         Subhalo mass function dn/dlog10(ms) from Tinker & Wetzel (2010).
 
-        Returns shape (n_ms,).
+        Parameters
+        ----------
+        Mh : float
+            Parent halo mass in M_sun.
+        ms : ndarray
+            Subhalo masses in M_sun.
+
+        Returns
+        -------
+        dndlog10ms : ndarray
+            Subhalo mass function, same shape as *ms*.
         """
         x = ms / Mh
-        return 0.3 * x**(-0.7) * np.exp(-9.9 * x**2.5) * np.log(10)
+        return 0.13 * x**(-0.7) * np.exp(-9.9 * x**2.5) * np.log(10)
 
     # ── Power spectra ────────────────────────────────────────────────────
 
-    def cl_1h(self):
+    def cl_1h(self) -> np.ndarray:
         """
         1-halo CIB power spectrum.
 
         Returns
         -------
-        Cl_1h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_1h : ndarray, shape ``(n_freq, n_freq, n_ell)``
+            In Jy^2/sr.
         """
         Cl_1h = np.zeros((self.nfreq, self.nfreq, self.n_ell))
         dj_c = self._dj_cen    # (n_freq, n_mass, n_z)
@@ -236,9 +293,6 @@ class CIBModel:
         for i in range(self.n_ell):
             u_i = u[:, i, :]  # (n_mass, n_z)
             for f in range(self.nfreq):
-                # (n_freq, n_mass, n_z) for each term
-                # Term structure: dj_c[f]*dj_s + dj_c*dj_s[f] + dj_s[f]*dj_s*u^2
-                # all divided by hmf, integrated over mass, then over z with geo
                 rest1 = (dj_c[f, :, :] * dj_s * u_i +
                          dj_c * dj_s[f, :, :] * u_i +
                          dj_s[f, :, :] * dj_s * u_i**2) / hmf
@@ -254,18 +308,18 @@ class CIBModel:
 
         return Cl_1h
 
-    def cl_2h(self):
+    def cl_2h(self) -> np.ndarray:
         """
         2-halo CIB power spectrum.
 
         Returns
         -------
-        Cl_2h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_2h : ndarray, shape ``(n_freq, n_freq, n_ell)``
+            In Jy^2/sr.
         """
         Cl_2h = np.zeros((self.nfreq, self.nfreq, self.n_ell))
 
         # Bias-weighted emissivity J_nu: ∫ dlog10(M) (dj_c + dj_s * u) * b
-        # Shape: (n_freq, n_z, n_ell)
         Jv = np.zeros((self.nfreq, self.n_z, self.n_ell))
         dj_c = self._dj_cen    # (n_freq, n_mass, n_z)
         dj_s = self._dj_sub    # (n_freq, n_mass, n_z)
@@ -288,7 +342,6 @@ class CIBModel:
         fcxcc = self.fc * self.cc
 
         for f in range(self.nfreq):
-            # Jv[f] * Jv * pkt → (n_freq, n_z, n_ell)
             rest1 = Jv * Jv[f, :, :] * pkt  # (n_freq, n_z, n_ell)
             intg_z = simps(rest1, self.z, axis=1)  # (n_freq, n_ell)
             Cl_2h[f, :, :] = fcxcc[f] * intg_z * fcxcc[:, None]
@@ -297,13 +350,14 @@ class CIBModel:
 
     # ── Mean CIB intensity ───────────────────────────────────────────────
 
-    def mean_intensity(self):
+    def mean_intensity(self) -> np.ndarray:
         """
-        Mean CIB specific intensity <I_nu> in nW/m^2/sr.
+        Mean CIB specific intensity <I_nu>.
 
         Returns
         -------
-        I_nu : ndarray, shape (n_freq,)
+        I_nu : ndarray, shape ``(n_freq,)``
+            Mean CIB intensity in nW/m^2/sr.
         """
         dj_c = self._dj_cen    # (n_freq, n_mass, n_z)
         dj_s = self._dj_sub    # (n_freq, n_mass, n_z)

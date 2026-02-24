@@ -7,6 +7,8 @@ The CIB best-fit parameters differ from the CIB-only (200c) case.
 Matches the physics of Cell_CIBxtSZ.py from the original code.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 from . import config
@@ -20,12 +22,22 @@ class CIBxTSZModel:
     Parameters
     ----------
     cib_model : CIBModel
-        CIB model initialised with mdef='500c' and 500c params.
+        CIB model initialised with ``mdef='500c'`` and 500c best-fit params.
     tsz_model : tSZModel
-        tSZ model initialised with mdef='500c'.
+        tSZ model initialised with ``mdef='500c'``.
+
+    Raises
+    ------
+    ValueError
+        If models use different halo model instances or incompatible grids.
     """
 
-    def __init__(self, cib_model, tsz_model):
+    def __init__(self, cib_model, tsz_model) -> None:
+        if cib_model.hm is not tsz_model.hm:
+            raise ValueError(
+                "CIB and tSZ models must share the same HaloModel instance"
+            )
+
         self.cib = cib_model
         self.tsz = tsz_model
 
@@ -48,13 +60,13 @@ class CIBxTSZModel:
         self._dj_cen_prime = cib_model._dj_cen / denom  # (n_freq, n_mass, n_z)
         self._dj_sub_prime = cib_model._dj_sub / denom   # (n_freq, n_mass, n_z)
 
-    def cl_1h(self):
+    def cl_1h(self) -> np.ndarray:
         """
         1-halo CIB × tSZ cross power spectrum.
 
         Returns
         -------
-        Cl_1h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_1h : ndarray, shape ``(n_freq, n_freq, n_ell)``
             In Jy^2/sr.
         """
         if self.cib.hm._cosmo.H0 and self.tsz.experiment == 'Planck':
@@ -79,9 +91,6 @@ class CIBxTSZModel:
         for i in range(self.n_ell):
             u_i = u_nfw[:, i, :]  # (n_mass, n_z)
             for f in range(self.nfreq):
-                # Structure from original:
-                # y_ell * [(dj_c + dj_s*u)*cc[:,None,None]*f_v[f] +
-                #          (dj_c[f] + dj_s[f]*u)*cc[f]*f_v[:,None,None]] * hmf
                 a = y_ell[i, :, :] * (
                     (dj_c + dj_s * u_i) * cc[:, None, None] * f_v[f] +
                     (dj_c[f, :, :] + dj_s[f, :, :] * u_i) * cc[f] * f_v[:, None, None]
@@ -97,13 +106,14 @@ class CIBxTSZModel:
 
         return Cl_1h
 
-    def cl_2h(self):
+    def cl_2h(self) -> np.ndarray:
         """
         2-halo CIB × tSZ cross power spectrum.
 
         Returns
         -------
-        Cl_2h : ndarray, shape (n_freq, n_freq, n_ell)
+        Cl_2h : ndarray, shape ``(n_freq, n_freq, n_ell)``
+            In Jy^2/sr.
         """
         if self.tsz.experiment == 'Planck':
             Kcmb_MJy = config.PLANCK['Kcmb_MJy']
@@ -134,7 +144,7 @@ class CIBxTSZModel:
             intgn_mh1 = simps(res1, self.log10_mass, axis=0)  # (n_z,)
 
             for f in range(self.nfreq):
-                # CIB integral: ∫ dlog10(M) [(dj_c+dj_s*u)*f_v[f] + (dj_c[f]+dj_s[f]*u)*f_v] * b * hmf
+                # CIB integral
                 res2 = (
                     (dj_c + dj_s * u_i) * f_v[f] +
                     (dj_c[f, :, :] + dj_s[f, :, :] * u_i) * f_v[:, None, None]
