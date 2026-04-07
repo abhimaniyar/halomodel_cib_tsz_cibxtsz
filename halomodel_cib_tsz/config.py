@@ -123,3 +123,52 @@ SHOT_NOISE = {
     (545, 545): 2343.8,
     (857, 857): 7384.6,
 }
+
+# ── Galaxy HOD parameters (More+2015) ──────────────────────────────────────
+
+HOD_PARAMS_CMASS = {
+    'log10mMin': 13.42,
+    'sLog10m': np.sqrt(0.49),
+    'alpha': 1.09,
+    'm1': 10**14.43,
+    'kappa': 1.10,
+    'mMinHod': 10**13.42,
+    'alphaInc': 0.51,
+    'log10mInc': 13.84,
+}
+
+HOD_PARAMS_DESI_LRG = {
+    'log10mMin': 12.5,
+    'sLog10m': np.sqrt(0.49),
+    'alpha': 1.09,
+    'm1': 10**14.43,
+    'kappa': 1.10,
+    'mMinHod': 10**13.42,
+    'alphaInc': 0.51,
+    'log10mInc': 13.84,
+}
+
+HOD_PARAMS_DESI_ELG = {
+    'log10mMin': 12.1,
+    'sLog10m': 0.30,
+    'alpha': 0.81,
+    'm1': 10**13.84,
+    'kappa': 1.10,
+    'mMinHod': 10**13.42,
+    'alphaInc': 0.51,
+    'log10mInc': 13.84,
+    # ELG-specific parameters
+    'Ac': 0.1,
+    'log10mc': 11.64,
+    'gamma': 5.47,
+    'As': 0.41,
+    'm0': 10**11.20,
+}
+
+GALAXY_SURVEYS = {
+    'CMASS': HOD_PARAMS_CMASS,
+    'DESI_LRG': HOD_PARAMS_DESI_LRG,
+    'DESI_ELG': HOD_PARAMS_DESI_ELG,
+}
+
+MDEF_GAL = '200c'

@@ -9,6 +9,9 @@ Based on the model from [Maniyar, Bethermin & Lagache (2021)](https://arxiv.org/
 - **CIB auto-power spectra** C_l^{nu x nu'} (1-halo + 2-halo + shot noise)
 - **tSZ auto-power spectra** C_l^{yy} (Arnaud+2010 pressure profile)
 - **CIB x tSZ cross-power spectra** C_l^{CIB x tSZ}
+- **Galaxy auto-power spectrum** C_l^{gg} (HOD model, More+2015)
+- **CIB x galaxy cross-power spectra** C_l^{CIB x gal}
+- **tSZ x galaxy cross-power spectra** C_l^{tSZ x gal}
 - **Mean CIB specific intensity** \<I_nu\> in nW/m^2/sr
 
 The four free CIB parameters are: M_eff (peak efficiency halo mass), eta_max (maximum SFR efficiency), sigma_Mh (log-normal width), and tau (late-time evolution slope).
@@ -93,7 +96,18 @@ result = compute_spectra(components=('cib', 'tsz'))
 
 # All three (default)
 result = compute_spectra(components=('cib', 'tsz', 'cibxtsz'))
+
+# Galaxy auto-spectrum
+result = compute_spectra(components=('gal',), galaxy_survey='CMASS')
+
+# Galaxy cross-correlations
+result = compute_spectra(
+    components=('cib', 'tsz', 'gal', 'cibxgal', 'tszxgal'),
+    galaxy_survey='CMASS',
+)
 ```
+
+Available components: `'cib'`, `'tsz'`, `'cibxtsz'`, `'gal'`, `'cibxgal'`, `'tszxgal'`.
 
 ### Full parameter reference
 
@@ -104,13 +118,15 @@ result = compute_spectra(
     cosmo='planck18',             # colossus cosmology name
     cib_params=None,              # dict with {Meff, eta_max, sigma_Mh, tau}, or None for defaults
     tsz_B=1.5,                    # hydrostatic mass bias (M_true = M_500 / B)
+    galaxy_survey='CMASS',        # 'CMASS', 'DESI_LRG', or 'DESI_ELG'
+    hod_params=None,              # HOD parameters, or None for survey defaults
     mass_range=(1e10, 1e15),      # halo mass range [M_sun]
     n_mass=100,                   # number of mass grid points
     z_range=(0.005, 7.0),         # redshift range
     n_z=100,                      # number of redshift points
     ell_range=(50, 11000),        # multipole range
     n_ell=50,                     # number of ell points
-    shot_noise=True,              # include CIB shot noise
+    shot_noise=True,              # include CIB and galaxy shot noise
 )
 ```
 
@@ -132,6 +148,15 @@ The returned dictionary contains (only for requested components):
 | `cl_cibxtsz` | (n_freq, n_freq, n_ell) | CIB x tSZ total |
 | `cl_cibxtsz_1h` | (n_freq, n_freq, n_ell) | CIB x tSZ 1-halo |
 | `cl_cibxtsz_2h` | (n_freq, n_freq, n_ell) | CIB x tSZ 2-halo |
+| `cl_gal` | (n_ell,) | Galaxy auto total (1h + 2h + shot) |
+| `cl_gal_1h` | (n_ell,) | Galaxy auto 1-halo |
+| `cl_gal_2h` | (n_ell,) | Galaxy auto 2-halo |
+| `cl_cibxgal` | (n_freq, n_ell) | CIB x galaxy total |
+| `cl_cibxgal_1h` | (n_freq, n_ell) | CIB x galaxy 1-halo |
+| `cl_cibxgal_2h` | (n_freq, n_ell) | CIB x galaxy 2-halo |
+| `cl_tszxgal` | (n_freq, n_ell) | tSZ x galaxy total |
+| `cl_tszxgal_1h` | (n_freq, n_ell) | tSZ x galaxy 1-halo |
+| `cl_tszxgal_2h` | (n_freq, n_ell) | tSZ x galaxy 2-halo |
 
 For Planck, the frequency indices are: 0=100, 1=143, 2=217, 3=353, 4=545, 5=857 GHz.
 
@@ -183,6 +208,53 @@ cl_2h = cib.cl_2h()       # (6, 6, 80)
 I_nu = cib.mean_intensity()  # (6,)
 ```
 
+### Galaxy surveys
+
+Three galaxy survey presets are available:
+
+| Survey | Description | HOD reference |
+|--------|-------------|---------------|
+| `'CMASS'` | BOSS CMASS LRGs | More+2015 |
+| `'DESI_LRG'` | DESI Luminous Red Galaxies | More+2015 parametrization |
+| `'DESI_ELG'` | DESI Emission Line Galaxies | More+2015 (ELG extension) |
+
+### Generic tracer framework
+
+For advanced use (custom cross-correlations, new tracers), the code provides a generic tracer-based framework:
+
+```python
+from halomodel_cib_tsz import (
+    HaloModel, CIBModel, tSZModel, GalaxyHOD,
+    CIBTracer, tSZTracer, GalaxyTracer, AngularCrossSpectrum,
+)
+from halomodel_cib_tsz.sed import load_planck_seds
+from halomodel_cib_tsz import config
+
+# Build halo model
+hm = HaloModel(cosmo_name='planck18', n_mass=100, n_z=100, n_ell=50)
+snu = load_planck_seds(hm.z)
+exp = config.PLANCK
+
+# Create physics models
+cib = CIBModel(hm, snu, exp['freq_cib'], exp['cc'], exp['fc'], mdef='200c')
+tsz = tSZModel(hm, exp['freq_cib'], experiment='Planck')
+hod = GalaxyHOD('CMASS')
+
+# Wrap as tracers
+cib_tracer = CIBTracer(cib)
+tsz_tracer = tSZTracer(tsz)
+gal_tracer = GalaxyTracer(hm, hod)
+
+# Compute any cross-correlation
+xspec = AngularCrossSpectrum(cib_tracer, gal_tracer)
+cl_1h = xspec.cl_1h()    # (n_freq, 1, n_ell)
+cl_2h = xspec.cl_2h()    # (n_freq, 1, n_ell)
+```
+
+New tracers (e.g. CO line intensity mapping, CMB lensing) can be added by subclassing `Tracer` and implementing `central_weight()`, `satellite_weight()`, `window()`, and `n_fields`. Window functions can be frequency-dependent — return shape `(n_fields, n_z)` instead of `(n_z,)`.
+
+When crossing two different multi-frequency tracers (e.g. CIB x tSZ), the engine automatically symmetrizes: `C[νi, νj] = ⟨A(νi)B(νj)⟩ + ⟨B(νi)A(νj)⟩`.
+
 ### Matching the original paper
 
 To reproduce the results in Maniyar+2021:
@@ -224,8 +296,11 @@ halomodel_cib_tsz/
   cib.py       -- CIBModel: SFR, emissivities, 1h/2h power spectra, mean intensity
   tsz.py       -- tSZModel: pressure profile, y_ell, 1h/2h power spectra
   cross.py     -- CIBxTSZModel: CIB x tSZ cross-correlation
+  galaxy.py    -- GalaxyHOD: More+2015 HOD (CMASS/DESI_LRG/DESI_ELG)
+  tracers.py   -- Tracer ABC + CIBTracer, tSZTracer, GalaxyTracer
+  angular_power.py -- AngularCrossSpectrum: generic Limber cross-Cl engine
   spectra.py   -- compute_spectra() unified interface
-  data/        -- SED files, y_ell kernel, best-fit parameters
+  data/        -- SED files, y_ell kernel, best-fit parameters, dN/dz files
   examples/
     driver.py        -- Example script with plotting
     quickstart.ipynb  -- Jupyter notebook tutorial

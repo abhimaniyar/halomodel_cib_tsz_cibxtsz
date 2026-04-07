@@ -1,5 +1,6 @@
 """
-Unified interface for computing CIB, tSZ, and CIB×tSZ power spectra.
+Unified interface for computing CIB, tSZ, CIB×tSZ, galaxy, and
+cross-correlation power spectra.
 """
 
 from __future__ import annotations
@@ -14,8 +15,14 @@ from .sed import load_planck_seds, load_spire_seds, load_unfiltered_seds
 from .cib import CIBModel
 from .tsz import tSZModel
 from .cross import CIBxTSZModel
+from .galaxy import GalaxyHOD
+from .tracers import CIBTracer, tSZTracer, GalaxyTracer
+from .angular_power import AngularCrossSpectrum
 
-_VALID_COMPONENTS = {'cib', 'tsz', 'cibxtsz'}
+_VALID_COMPONENTS = {
+    'cib', 'tsz', 'cibxtsz',
+    'gal', 'cibxgal', 'tszxgal',
+}
 _VALID_EXPERIMENTS = {'Planck', 'Herschel-spire', 'CCAT-p'}
 
 
@@ -25,6 +32,8 @@ def compute_spectra(
     cosmo: str = 'planck18',
     cib_params: Optional[dict] = None,
     tsz_B: float = config.TSZ_B,
+    galaxy_survey: str = 'CMASS',
+    hod_params: Optional[dict] = None,
     mass_range: tuple[float, float] = config.MASS_RANGE,
     n_mass: int = config.N_MASS,
     z_range: tuple[float, float] = config.Z_RANGE,
@@ -34,13 +43,13 @@ def compute_spectra(
     shot_noise: bool = True,
 ) -> dict:
     """
-    Compute CIB, tSZ, and/or CIB×tSZ angular power spectra.
+    Compute CIB, tSZ, galaxy, and cross-correlation angular power spectra.
 
     Parameters
     ----------
     components : tuple of str
         Which spectra to compute. Valid values: ``'cib'``, ``'tsz'``,
-        ``'cibxtsz'``.
+        ``'cibxtsz'``, ``'gal'``, ``'cibxgal'``, ``'tszxgal'``.
     experiment : str
         Experiment preset: ``'Planck'``, ``'Herschel-spire'``, or
         ``'CCAT-p'``.
@@ -51,6 +60,11 @@ def compute_spectra(
         If *None*, uses defaults for the appropriate mass definition.
     tsz_B : float
         tSZ hydrostatic mass bias factor.
+    galaxy_survey : str
+        Galaxy survey for HOD parameters: ``'CMASS'``, ``'DESI_LRG'``,
+        or ``'DESI_ELG'``.
+    hod_params : dict, optional
+        Galaxy HOD parameters. If *None*, uses defaults for the survey.
     mass_range : tuple of float
         ``(M_min, M_max)`` in M_sun.
     n_mass : int
@@ -64,13 +78,16 @@ def compute_spectra(
     n_ell : int
         Number of log-spaced multipole points.
     shot_noise : bool
-        Whether to add shot noise to CIB spectra.
+        Whether to add shot noise to CIB and galaxy spectra.
 
     Returns
     -------
     result : dict
         Contains ``'ell'``, ``'freqs'``, and requested power spectra arrays.
-        Each C_ell array has shape ``(n_freq, n_freq, n_ell)``.
+        CIB/tSZ arrays have shape ``(n_freq, n_freq, n_ell)``.
+        Galaxy auto has shape ``(n_ell,)``.
+        CIB×gal has shape ``(n_freq, n_ell)``.
+        tSZ×gal has shape ``(n_freq, n_ell)``.
 
     Raises
     ------
@@ -201,6 +218,46 @@ def compute_spectra(
         result['cl_cibxtsz_1h'] = cl_1h
         result['cl_cibxtsz_2h'] = cl_2h
         result['cl_cibxtsz'] = cl_1h + cl_2h
+
+    # ── Galaxy-related components ────────────────────────────────────
+    need_gal = any(c in components for c in ('gal', 'cibxgal', 'tszxgal'))
+    if need_gal:
+        hod = GalaxyHOD(survey=galaxy_survey, params=hod_params)
+        gal_tracer = GalaxyTracer(hm, hod)
+
+    if 'gal' in components:
+        gal_xspec = AngularCrossSpectrum(gal_tracer, gal_tracer)
+        cl_1h = gal_xspec.cl_1h()[0, 0, :]   # (n_ell,)
+        cl_2h = gal_xspec.cl_2h()[0, 0, :]   # (n_ell,)
+        cl_tot = cl_1h + cl_2h
+        if shot_noise:
+            cl_tot = cl_tot + hod.shot_noise()
+        result['cl_gal_1h'] = cl_1h
+        result['cl_gal_2h'] = cl_2h
+        result['cl_gal'] = cl_tot
+
+    if 'cibxgal' in components:
+        if 'cib' not in components:
+            cib = CIBModel(hm, snu, freqs, cc, fc,
+                           params=cib_params, mdef='200c')
+        cib_tracer = CIBTracer(cib)
+        xspec = AngularCrossSpectrum(cib_tracer, gal_tracer)
+        cl_1h = xspec.cl_1h()[:, 0, :]   # (n_freq, n_ell)
+        cl_2h = xspec.cl_2h()[:, 0, :]   # (n_freq, n_ell)
+        result['cl_cibxgal_1h'] = cl_1h
+        result['cl_cibxgal_2h'] = cl_2h
+        result['cl_cibxgal'] = cl_1h + cl_2h
+
+    if 'tszxgal' in components:
+        if 'tsz' not in components:
+            tsz = tSZModel(hm, freqs, experiment=experiment, B=tsz_B)
+        tsz_tracer = tSZTracer(tsz)
+        xspec = AngularCrossSpectrum(tsz_tracer, gal_tracer)
+        cl_1h = xspec.cl_1h()[:, 0, :]   # (n_freq, n_ell)
+        cl_2h = xspec.cl_2h()[:, 0, :]   # (n_freq, n_ell)
+        result['cl_tszxgal_1h'] = cl_1h
+        result['cl_tszxgal_2h'] = cl_2h
+        result['cl_tszxgal'] = cl_1h + cl_2h
 
     return result
 
