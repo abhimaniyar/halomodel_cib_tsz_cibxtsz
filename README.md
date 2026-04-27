@@ -12,7 +12,9 @@ Based on the model from [Maniyar, Bethermin & Lagache (2021)](https://arxiv.org/
 - **Galaxy auto-power spectrum** C_l^{gg} (HOD model, More+2015)
 - **CIB x galaxy cross-power spectra** C_l^{CIB x gal}
 - **tSZ x galaxy cross-power spectra** C_l^{tSZ x gal}
-- **Mean CIB specific intensity** \<I_nu\> in nW/m^2/sr
+- **Mean CIB specific intensity** nu*\<I_nu\> in nW/m^2/sr — `CIBModel.mean_intensity()`
+- **Cosmic SFR density** rho_SFR(z) in M_sun/yr/Mpc^3 — `CIBModel.sfrd()`
+  (integrates SFR(M, z) over the halo mass function for centrals + integrated subhalos)
 
 The four free CIB parameters are: M_eff (peak efficiency halo mass), eta_max (maximum SFR efficiency), sigma_Mh (log-normal width), and tau (late-time evolution slope).
 
@@ -205,8 +207,51 @@ cib = CIBModel(hm, snu,
 # Compute spectra
 cl_1h = cib.cl_1h()       # (6, 6, 80)
 cl_2h = cib.cl_2h()       # (6, 6, 80)
-I_nu = cib.mean_intensity()  # (6,)
+I_nu = cib.mean_intensity()  # (6,) nu*<I_nu> in nW/m^2/sr
+sfrd = cib.sfrd()         # (n_z,) cosmic SFRD in M_sun/yr/Mpc^3
 ```
+
+### SFRD and mean CIB intensity
+
+The CIB model exposes two integral observables that are useful on their own
+(e.g. for fitting the four CIB parameters to SFRD measurements or galaxy
+number-count CIB levels without computing any C_l):
+
+```python
+from halomodel_cib_tsz.halo import HaloModel
+from halomodel_cib_tsz.sed import load_unfiltered_seds
+from halomodel_cib_tsz.cib import CIBModel
+import numpy as np
+
+hm = HaloModel(z_range=(0.005, 5.0), n_z=40, n_mass=80, n_ell=10)
+freqs = np.array([353., 600., 857., 1200., 3000.])  # GHz
+snu = load_unfiltered_seds(freqs, hm.z)
+cib = CIBModel(hm, snu, list(freqs),
+               cc=np.ones_like(freqs), fc=np.ones_like(freqs),
+               mdef='200c')
+
+# Cosmic SFR density on the halo-model redshift grid
+sfrd_z = cib.sfrd()           # M_sun/yr/Mpc^3, shape (n_z,)
+
+# Mean CIB nu*<I_nu> (instrument-convention if cc != 1)
+nu_inu = cib.mean_intensity()  # nW/m^2/sr, shape (n_freq,)
+
+# Cheap parameter swap for MCMC / scans (skips the expensive halo-model
+# precompute -- only re-runs the SFR-dependent emissivities):
+cib.update_params({'Meff': 6e12, 'eta_max': 0.45,
+                   'sigma_Mh': 1.4, 'tau': 0.85})
+sfrd_z = cib.sfrd()
+nu_inu = cib.mean_intensity()
+```
+
+`mean_intensity()` returns `cc * nu * integral`, so `cc` controls the
+photometric convention of the output: pass `cc=1` for the bandpass-naive
+nu*I_nu(=const) convention, or pass a per-frequency colour correction to
+emit values in an instrument's convention.
+
+For a worked example fitting the four CIB parameters to IR SFRD data and
+to the Maniyar+2018 (arXiv:1801.10146) Tab. 2 mean-CIB measurements via
+`emcee`, see `MCMC/run_mcmc_sfrd.py` and `MCMC/run_mcmc_joint.py`.
 
 ### Galaxy surveys
 

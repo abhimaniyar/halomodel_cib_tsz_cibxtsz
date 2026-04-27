@@ -341,6 +341,67 @@ class CIBModel:
 
         return Cl_2h
 
+    # ── Star-formation rate density ──────────────────────────────────────
+
+    def sfrd(self) -> np.ndarray:
+        """
+        Cosmic SFRD(z) = ∫ dlog10(M) (dn/dlogM) * SFR(M,z) for centrals
+        plus the integrated subhalo contribution.
+
+        Returns
+        -------
+        sfrd : ndarray, shape ``(n_z,)``
+            SFRD in M_sun / yr / Mpc^3.
+        """
+        fsub = config.F_SUB
+
+        # Central contribution: parent halo mass reduced by (1 - fsub)
+        sfr_cen = self.sfr(self.mass * (1.0 - fsub))  # (n_mass, n_z)
+        sfrd_cen = simps(self.hmf_arr * sfr_cen, self.log10_mass, axis=0)
+
+        # Satellite contribution: integrate min(SFR_I, SFR_II) * subhalo MF
+        # over subhalo masses for each parent mass, then over parent HMF.
+        sfr_sat_per_parent = np.zeros((self.n_mass, self.n_z))
+        for i in range(self.n_mass):
+            Mh_eff = self.mass[i] * (1.0 - fsub)
+            if Mh_eff <= 1e5:
+                continue
+            log_ms = np.arange(5.0, np.log10(Mh_eff), 0.1)
+            ms = 10**log_ms
+            dlnmsub = log_ms[1] - log_ms[0] if len(log_ms) > 1 else 0.1
+            sfrI = self.sfr(ms)
+            sfr_par = self.sfr(np.array([Mh_eff]))
+            sfrII = sfr_par[0, :][None, :] * ms[:, None] / Mh_eff
+            sfr_sub = np.minimum(sfrI, sfrII)
+            subhmf = self._subhalo_mf(self.mass[i], ms)
+            integrand = subhmf[:, None] * sfr_sub
+            sfr_sat_per_parent[i, :] = integrate.simpson(
+                integrand, dx=dlnmsub, axis=0
+            )
+        sfrd_sat = simps(self.hmf_arr * sfr_sat_per_parent,
+                         self.log10_mass, axis=0)
+        return sfrd_cen + sfrd_sat
+
+    # ── Parameter update for MCMC ────────────────────────────────────────
+
+    def update_params(self, params: dict) -> None:
+        """
+        Update the four CIB model parameters and recompute SFR-dependent
+        emissivity arrays. HMF, bias, NFW Fourier transforms are unchanged.
+
+        Parameters
+        ----------
+        params : dict
+            Must contain ``Meff``, ``eta_max``, ``sigma_Mh``, ``tau``.
+        """
+        self.Meff = params['Meff']
+        self.eta_max = params['eta_max']
+        self.sigma_Mh = params['sigma_Mh']
+        self.tau = params['tau']
+        self.sigpow = self.sigma_Mh - self.tau * self.sig_z
+        self._dj_cen = self._djc_dlogMh()
+        self._dj_sub = self._djsub_dlogMh()
+
     # ── Mean CIB intensity ───────────────────────────────────────────────
 
     def mean_intensity(self) -> np.ndarray:

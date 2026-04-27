@@ -203,7 +203,9 @@ def _L_IR(
         L_sorted = L_feq[::-1]  # reverse to match sorted freq
         Lint = np.interp(fint, np.log10(freq_sorted), L_sorted)
         dfeq = 10**fint
-        L_IR[i] = np.trapz(Lint, dfeq)
+        # numpy 2 renamed trapz → trapezoid
+        _trap = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+        L_IR[i] = _trap(Lint, dfeq)
 
     return L_IR
 
