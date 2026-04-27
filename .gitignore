@@ -25,3 +25,6 @@ Icon?
 # Original repo (large, already tracked in its own git)
 original/
 
+# Local MCMC fits / data — not part of the public package
+MCMC/
+

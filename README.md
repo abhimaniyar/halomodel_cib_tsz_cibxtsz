@@ -249,9 +249,10 @@ photometric convention of the output: pass `cc=1` for the bandpass-naive
 nu*I_nu(=const) convention, or pass a per-frequency colour correction to
 emit values in an instrument's convention.
 
-For a worked example fitting the four CIB parameters to IR SFRD data and
-to the Maniyar+2018 (arXiv:1801.10146) Tab. 2 mean-CIB measurements via
-`emcee`, see `MCMC/run_mcmc_sfrd.py` and `MCMC/run_mcmc_joint.py`.
+`update_params()` keeps the cached halo-model precompute (HMF, bias, NFW
+FT) and only re-runs the SFR-dependent emissivities, making `sfrd()` and
+`mean_intensity()` cheap enough (~10 ms per call on the default grid) to
+sit in the inner loop of an MCMC fit to SFRD or mean-CIB data.
 
 ### Galaxy surveys
 
