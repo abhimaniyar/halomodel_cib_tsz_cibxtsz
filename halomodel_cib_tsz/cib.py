@@ -103,6 +103,7 @@ class CIBModel:
 
         # Pre-compute emissivities
         print("CIB: computing emissivities...")
+        self._sfr_sat = self._sfr_sat_per_parent()  # (n_mass, n_z)
         self._dj_cen = self._djc_dlogMh()     # (n_freq, n_mass, n_z)
         self._dj_sub = self._djsub_dlogMh()   # (n_freq, n_mass, n_z)
 
@@ -193,18 +194,21 @@ class CIBModel:
 
         return rest[None, :, :] * self.snu[:, None, :]  # (n_freq, n_mass, n_z)
 
-    def _djsub_dlogMh(self) -> np.ndarray:
+    def _sfr_sat_per_parent(self) -> np.ndarray:
         """
-        Subhalo emissivity with min(SFR_I, SFR_II) prescription.
+        Total subhalo SFR per parent halo, integrating min(SFR_I, SFR_II)
+        against the subhalo mass function from 10^5 M_sun to (1-fsub) M_h.
+
+        Shared by the subhalo emissivity and the SFRD, and recomputed only
+        when the SFR parameters change.
 
         Returns
         -------
-        dj_sub : ndarray, shape ``(n_freq, n_mass, n_z)``
+        sfr_sat : ndarray, shape ``(n_mass, n_z)``
+            In M_sun/yr.
         """
         fsub = config.F_SUB
-        chi = self.hm._chi  # (n_z,)
-
-        dj_sub = np.zeros((self.nfreq, self.n_mass, self.n_z))
+        sfr_sat = np.zeros((self.n_mass, self.n_z))
 
         for i in range(self.n_mass):
             Mh_eff = self.mass[i] * (1.0 - fsub)
@@ -230,14 +234,23 @@ class CIBModel:
             subhmf = self._subhalo_mf(self.mass[i], ms)  # (n_ms,)
 
             # Integrate over subhalo masses
-            integrand = subhmf[:, None] * sfr_sub / config.KC  # (n_ms, n_z)
-            intgn = integrate.simpson(integrand, dx=dlnmsub, axis=0)  # (n_z,)
+            sfr_sat[i, :] = integrate.simpson(subhmf[:, None] * sfr_sub,
+                                              dx=dlnmsub, axis=0)
 
-            # Build emissivity — broadcast over all frequencies
-            dj_sub[:, i, :] = (self.snu * self.hmf_arr[i, :] *
-                               (1.0 + self.z) * intgn * chi**2)
+        return sfr_sat
 
-        return dj_sub
+    def _djsub_dlogMh(self) -> np.ndarray:
+        """
+        Subhalo emissivity with min(SFR_I, SFR_II) prescription.
+
+        Returns
+        -------
+        dj_sub : ndarray, shape ``(n_freq, n_mass, n_z)``
+        """
+        chi = self.hm._chi  # (n_z,)
+        rest = (self.hmf_arr * self._sfr_sat * (1.0 + self.z) * chi**2
+                / config.KC)  # (n_mass, n_z)
+        return rest[None, :, :] * self.snu[:, None, :]  # (n_freq, n_mass, n_z)
 
     @staticmethod
     def _subhalo_mf(Mh: float, ms: np.ndarray) -> np.ndarray:
@@ -329,7 +342,7 @@ class CIBModel:
         chi = self.hm._chi
         geo = dchi_dz / (chi * (1.0 + self.z))**2  # (n_z,)
 
-        pk_geo = self.hm._Pk_limber * geo  # (n_ell, n_z)
+        pk_geo = self.hm._Pk_2h * geo  # (n_ell, n_z), P_lin [1 + beta^NL]
         pkt = pk_geo.T  # (n_z, n_ell)
 
         fcxcc = self.fc * self.cc
@@ -359,26 +372,10 @@ class CIBModel:
         sfr_cen = self.sfr(self.mass * (1.0 - fsub))  # (n_mass, n_z)
         sfrd_cen = simps(self.hmf_arr * sfr_cen, self.log10_mass, axis=0)
 
-        # Satellite contribution: integrate min(SFR_I, SFR_II) * subhalo MF
-        # over subhalo masses for each parent mass, then over parent HMF.
-        sfr_sat_per_parent = np.zeros((self.n_mass, self.n_z))
-        for i in range(self.n_mass):
-            Mh_eff = self.mass[i] * (1.0 - fsub)
-            if Mh_eff <= 1e5:
-                continue
-            log_ms = np.arange(5.0, np.log10(Mh_eff), 0.1)
-            ms = 10**log_ms
-            dlnmsub = log_ms[1] - log_ms[0] if len(log_ms) > 1 else 0.1
-            sfrI = self.sfr(ms)
-            sfr_par = self.sfr(np.array([Mh_eff]))
-            sfrII = sfr_par[0, :][None, :] * ms[:, None] / Mh_eff
-            sfr_sub = np.minimum(sfrI, sfrII)
-            subhmf = self._subhalo_mf(self.mass[i], ms)
-            integrand = subhmf[:, None] * sfr_sub
-            sfr_sat_per_parent[i, :] = integrate.simpson(
-                integrand, dx=dlnmsub, axis=0
-            )
-        sfrd_sat = simps(self.hmf_arr * sfr_sat_per_parent,
+        # Satellite contribution: the per-parent subhalo SFR (integrated
+        # against the subhalo MF, cached with the parameters), then over the
+        # parent HMF.
+        sfrd_sat = simps(self.hmf_arr * self._sfr_sat,
                          self.log10_mass, axis=0)
         return sfrd_cen + sfrd_sat
 
@@ -399,6 +396,7 @@ class CIBModel:
         self.sigma_Mh = params['sigma_Mh']
         self.tau = params['tau']
         self.sigpow = self.sigma_Mh - self.tau * self.sig_z
+        self._sfr_sat = self._sfr_sat_per_parent()
         self._dj_cen = self._djc_dlogMh()
         self._dj_sub = self._djsub_dlogMh()
 

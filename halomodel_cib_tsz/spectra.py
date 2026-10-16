@@ -41,6 +41,7 @@ def compute_spectra(
     ell_range: tuple[float, float] = config.ELL_RANGE,
     n_ell: int = config.N_ELL,
     shot_noise: bool = True,
+    beta_nl: bool = config.BETA_NL,
 ) -> dict:
     """
     Compute CIB, tSZ, galaxy, and cross-correlation angular power spectra.
@@ -79,6 +80,9 @@ def compute_spectra(
         Number of log-spaced multipole points.
     shot_noise : bool
         Whether to add shot noise to CIB and galaxy spectra.
+    beta_nl : bool
+        Apply the non-linear halo bias beta^NL to all 2-halo terms
+        (default ``config.BETA_NL``, i.e. on).
 
     Returns
     -------
@@ -163,7 +167,8 @@ def compute_spectra(
     hm = HaloModel(cosmo_name=cosmo,
                     mass_range=mass_range, n_mass=n_mass,
                     z_range=z_range, n_z=n_z,
-                    ell_range=ell_range, n_ell=n_ell)
+                    ell_range=ell_range, n_ell=n_ell,
+                    beta_nl=beta_nl)
 
     # ── Load SEDs ─────────────────────────────────────────────────────
     if experiment == 'Planck':

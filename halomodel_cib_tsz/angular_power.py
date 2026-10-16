@@ -151,7 +151,7 @@ class AngularCrossSpectrum:
         z = self.hm.z
         log10m = self.hm.log10_mass
         proj = self._proj  # (n_a, n_b, n_z)
-        Pk = self.hm._Pk_limber  # (n_ell, n_z)
+        Pk = self.hm._Pk_2h  # (n_ell, n_z), P_lin [1 + beta^NL]
 
         hmf_a = self.ta.hmf_arr
         bias_a = self.ta.bias_arr

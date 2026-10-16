@@ -16,6 +16,7 @@ from colossus.lss import mass_function, bias, peaks
 from colossus.halo import concentration as conc_module
 
 from . import config
+from .beta_nl import BetaNL
 
 
 # ── Original Tinker08 HMF (spline-interpolated parameters) ─────────────
@@ -98,6 +99,14 @@ class HaloModel:
         Custom redshift grid (overrides z_range/n_z).
     ell_array : ndarray, optional
         Custom multipole grid (overrides ell_range/n_ell).
+    beta_nl : bool
+        Apply the non-linear halo bias correction beta^NL to every 2-halo
+        term: P_2h = P_lin [1 + A beta_med(k, z)] (default ``True``).
+    beta_nl_options : dict, optional
+        Options passed to :class:`beta_nl.BetaNL` (default
+        ``config.BETA_NL_OPTIONS``). Only ``beta_mode='med'`` is supported.
+    beta_nl_amplitude : float
+        Amplitude A multiplying beta^NL (default 1).
 
     Attributes
     ----------
@@ -126,6 +135,9 @@ class HaloModel:
         mass_array: np.ndarray | None = None,
         z_array: np.ndarray | None = None,
         ell_array: np.ndarray | None = None,
+        beta_nl: bool = config.BETA_NL,
+        beta_nl_options: dict | None = None,
+        beta_nl_amplitude: float = config.BETA_NL_AMPLITUDE,
     ) -> None:
         # Set colossus cosmology (global state)
         self._cosmo = cosmology.setCosmology(cosmo_name)
@@ -177,6 +189,27 @@ class HaloModel:
         self._Pk_limber = np.exp(
             self._pk_interp(lnk_flat, z_flat, grid=False)
         ).reshape(self.n_ell, self.n_z)
+
+        # Non-linear halo bias: the 2-halo terms use _Pk_2h, which is the
+        # linear P(k) times [1 + A beta_med(k, z)] at the same Limber k.
+        self.beta_nl = bool(beta_nl)
+        self.beta_nl_amplitude = float(beta_nl_amplitude)
+        self.beta_nl_options = dict(config.BETA_NL_OPTIONS
+                                    if beta_nl_options is None
+                                    else beta_nl_options)
+        if self.beta_nl:
+            if self.beta_nl_options.get('beta_mode', 'med') != 'med':
+                raise ValueError(
+                    "only beta_mode='med' is implemented here: the mass "
+                    "dependent 'full' mode needs a per-tracer contraction")
+            self._beta = BetaNL(h=self.h, **self.beta_nl_options)
+            self._beta_nl_limber = self._beta.beta_kz(
+                k_limber_2d, np.broadcast_to(self.z[None, :], k_limber_2d.shape))
+        else:
+            self._beta = None
+            self._beta_nl_limber = np.zeros_like(self._Pk_limber)
+        self._Pk_2h = self._Pk_limber * (
+            1.0 + self.beta_nl_amplitude * self._beta_nl_limber)
 
     # ── P(k,z) interpolation ────────────────────────────────────────────
 

@@ -240,7 +240,7 @@ class tSZModel:
         res_m = simps(hmf * b * y_l, self.log10_mass, axis=1)  # (n_ell, n_z)
 
         # ∫ dz dVc_dz * P(k) * [hmf*b*y_l]^2
-        Pk = self.hm._Pk_limber  # (n_ell, n_z)
+        Pk = self.hm._Pk_2h  # (n_ell, n_z), P_lin [1 + beta^NL]
         res = simps(dVc_dz * Pk * res_m**2, self.z, axis=1)  # (n_ell,)
 
         fnu = self._f_nu * 1e6 * Kcmb_MJy

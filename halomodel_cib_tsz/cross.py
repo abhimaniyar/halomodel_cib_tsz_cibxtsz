@@ -134,7 +134,7 @@ class CIBxTSZModel:
 
         dVc_dz = (config.c_light * self.hm._chi**2 /
                   (self.hm.H0 * self.hm.E_z(self.z)))
-        Pk = self.hm._Pk_limber  # (n_ell, n_z)
+        Pk = self.hm._Pk_2h  # (n_ell, n_z), P_lin [1 + beta^NL]
 
         for i in range(self.n_ell):
             u_i = u_nfw[:, i, :]  # (n_mass, n_z)

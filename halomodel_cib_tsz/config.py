@@ -47,6 +47,22 @@ HMF_MODEL = 'tinker08'
 BIAS_MODEL = 'tinker10'
 CONC_MODEL = 'duffy08'
 
+# Non-linear halo bias beta^NL (Mead & Verde 2021, as adopted by Jego et al.
+# 2026): P_2h(k, z) = P_lin(k, z) [1 + A beta_med(k, z)] at every 2-halo site.
+# On by default; BETA_NL = False recovers the linear-bias 2-halo term of
+# Maniyar+2021. Options are passed straight to beta_nl.BetaNL. The default is
+# the "extrapolated" model of the ksz_co analysis: the mass-independent median
+# beta, power-law extrapolation in k beyond the last tabulated point (capped at
+# 10 h/Mpc), and a plateau at fixed peak height above z = 2.89.
+BETA_NL = True
+BETA_NL_AMPLITUDE = 1.0
+BETA_NL_OPTIONS = {
+    'beta_mode': 'med',
+    'k_extrap': 'powerlaw',
+    'z_extrap': 'plateau',
+    'k_h_convention': 'target',
+}
+
 MDEF_CIB = '200c'
 MDEF_TSZ = '500c'
 
