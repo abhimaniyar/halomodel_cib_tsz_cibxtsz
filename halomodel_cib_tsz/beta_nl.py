@@ -1,6 +1,7 @@
 """
-Non linear halo bias beta^NL, from Mead and Verde (2021), as adopted by
-Jego et al. (2026).
+Non linear halo bias beta^NL, from Mead and Verde (2021, MNRAS 503, 3095,
+arXiv:2011.08858), as adopted for the CIB by Jego et al. (2026,
+arXiv:2609.22057). Cite both when using it.
 
 Provenance: copied from the ksz_co pipeline
 (halo_model-master/software/halo_model/halo_model/beta_nl.py, 2026-10) with

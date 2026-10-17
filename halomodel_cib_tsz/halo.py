@@ -100,8 +100,9 @@ class HaloModel:
     ell_array : ndarray, optional
         Custom multipole grid (overrides ell_range/n_ell).
     beta_nl : bool
-        Apply the non-linear halo bias correction beta^NL to every 2-halo
-        term: P_2h = P_lin [1 + A beta_med(k, z)] (default ``True``).
+        Apply the non-linear halo bias correction beta^NL (Mead & Verde
+        2021; Jego et al. 2026) to every 2-halo term:
+        P_2h = P_lin [1 + A beta_med(k, z)] (default ``True``).
     beta_nl_options : dict, optional
         Options passed to :class:`beta_nl.BetaNL` (default
         ``config.BETA_NL_OPTIONS``). Only ``beta_mode='med'`` is supported.

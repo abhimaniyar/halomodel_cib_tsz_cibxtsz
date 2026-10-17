@@ -18,6 +18,8 @@ Based on the model from [Maniyar, Bethermin & Lagache (2021)](https://arxiv.org/
 
 The four free CIB parameters are: M_eff (peak efficiency halo mass), eta_max (maximum SFR efficiency), sigma_Mh (log-normal width), and tau (late-time evolution slope).
 
+All 2-halo terms include the **non-linear halo bias correction β^NL** of [Mead & Verde (2021)](https://arxiv.org/abs/2011.08858), as adopted for the CIB by [Jego et al. (2026)](https://arxiv.org/abs/2609.22057). It is on by default; see [Non-linear halo bias](#non-linear-halo-bias-βnl).
+
 ## Installation
 
 ### Option 1: conda/mamba (recommended)
@@ -129,6 +131,7 @@ result = compute_spectra(
     ell_range=(50, 11000),        # multipole range
     n_ell=50,                     # number of ell points
     shot_noise=True,              # include CIB and galaxy shot noise
+    beta_nl=True,                 # non-linear halo bias in all 2-halo terms
 )
 ```
 
@@ -301,15 +304,58 @@ New tracers (e.g. CO line intensity mapping, CMB lensing) can be added by subcla
 
 When crossing two different multi-frequency tracers (e.g. CIB x tSZ), the engine automatically symmetrizes: `C[νi, νj] = ⟨A(νi)B(νj)⟩ + ⟨B(νi)A(νj)⟩`.
 
-### Matching the original paper
+### Non-linear halo bias (β^NL)
 
-To reproduce the results in Maniyar+2021:
+The linear 2-halo term assumes P_hh(k, M, M') = b(M) b(M') P_lin(k). On
+intermediate scales the halo-halo power exceeds this. [Mead & Verde (2021)](https://arxiv.org/abs/2011.08858)
+measured the correction β^NL(k, z, M, M') in N-body simulations, and
+[Jego et al. (2026)](https://arxiv.org/abs/2609.22057) applied it to the CIB halo
+model:
+
+P_2h(k, z) = P_lin(k, z) [1 + A β^NL_med(k, z)]
+
+The package uses Jego et al.'s fast prescription, β^NL_med: the median over halo
+mass pairs in 10^11.5–10^14.5 M_sun, looked up in peak height. It is extended as a
+power law in k above the tabulated range (capped at k = 10 h/Mpc), set to zero below
+k = 0.08 h/Mpc, and held constant at fixed peak height above z = 2.89. It applies to
+every 2-halo term (CIB, tSZ, CIB × tSZ and the generic tracer pairs). For CIB
+spectra it raises the 2-halo term by about ×1.75 at ℓ ≈ 1200 and ×2.2 at ℓ ≈ 2000.
 
 ```python
+compute_spectra(beta_nl=False)                # linear-bias 2-halo term (as in Maniyar+2021)
+HaloModel(beta_nl=True,                       # default
+          beta_nl_amplitude=1.0,              # A
+          beta_nl_options={'k_extrap': 'freeze'})   # e.g. hold beta at the last tabulated k
+```
+
+If you use it, please cite both Mead & Verde (2021) and Jego et al. (2026) (see
+[Citation](#citation)). The tables in `data/beta_nl/bnl_tables.npz` are Mead &
+Verde's MultiDark measurements, as used by Jego et al.
+
+### Default CIB parameters
+
+`config.CIB_PARAMS_200C` holds the posterior medians of a refit with β^NL on (A = 1):
+M_eff = 1.604×10¹² M_sun, η_max = 0.338, σ_Mh = 1.650, τ = 0.141.
+- **Data:** Planck XXX CIB spectra at 217–857 GHz with a cross-frequency covariance,
+  plus SFRD and mean-CIB constraints.
+- **Halo model:** Planck18 with `hmf_model='tinker08_original'`. Use that HMF for
+  consistency with these values.
+- **CIB × tSZ:** `CIB_PARAMS_500C`, used for CIB × tSZ, is still the Maniyar+2021 fit
+  made without β^NL.
+
+### Matching the original paper
+
+To reproduce the results in Maniyar+2021, switch β^NL off and pass the paper's CIB
+parameters:
+
+```python
+paper_params = {'Meff': 5.34372e12, 'eta_max': 0.5126, 'sigma_Mh': 1.2483, 'tau': 0.8255}
 result = compute_spectra(
     components=('cib', 'tsz', 'cibxtsz'),
     cosmo='planck15',          # original used Planck 2015
     experiment='Planck',
+    cib_params=paper_params,
+    beta_nl=False,
 )
 ```
 
@@ -324,6 +370,7 @@ The model follows [Maniyar, Bethermin & Lagache (2021)](https://arxiv.org/abs/20
 - **Halo bias**: Tinker+2010 (switchable)
 - **Concentration-mass**: Duffy+2008 (switchable)
 - **P(k,z)**: Eisenstein-Hu transfer function via colossus
+- **Non-linear halo bias**: β^NL_med(k, z) of Mead & Verde (2021) in all 2-halo terms, as in Jego et al. (2026) (switchable)
 - **SFR model**: Log-normal efficiency x baryonic accretion rate (Fakhouri+2010)
 - **Subhalo contribution**: Tinker & Wetzel (2010) subhalo MF with min(SFR_I, SFR_II)
 - **tSZ pressure profile**: Arnaud+2010 generalised NFW with pre-tabulated y_ell kernel
@@ -337,7 +384,8 @@ halomodel_cib_tsz/
   __init__.py  -- Public API
   config.py    -- Constants, defaults, experiment presets, shot noise
   utils.py     -- Integration helpers
-  halo.py      -- HaloModel: colossus wrapper (HMF, bias, NFW FT, P(k), distances)
+  halo.py      -- HaloModel: colossus wrapper (HMF, bias, NFW FT, P(k), distances, beta^NL)
+  beta_nl.py   -- Non-linear halo bias tables and their extensions (Mead & Verde 2021; Jego et al. 2026)
   sed.py       -- SED loading (Planck/SPIRE FITS, Bethermin tables), tSZ spectral fn
   cib.py       -- CIBModel: SFR, emissivities, 1h/2h power spectra, mean intensity
   tsz.py       -- tSZModel: pressure profile, y_ell, 1h/2h power spectra
@@ -359,14 +407,39 @@ If you use this code, please cite:
 ```bibtex
 @article{Maniyar2021,
     author = {Maniyar, Abhishek S. and B{\'e}thermin, Matthieu and Lagache, Guilaine},
-    title = {Star formation history, infrared luminosity functions and dust mass functions
-             from far-infrared/sub-millimetre galaxy surveys using a halo model framework},
+    title = {Simple halo model formalism for the cosmic infrared background and its
+             correlation with the thermal Sunyaev-Zel'dovich effect},
     journal = {Astronomy \& Astrophysics},
     year = {2021},
     volume = {645},
     pages = {A40},
     doi = {10.1051/0004-6361/202038790},
     eprint = {2006.16329},
+    archivePrefix = {arXiv},
+}
+```
+
+If you use the non-linear halo bias correction (on by default), please also cite:
+
+```bibtex
+@article{MeadVerde2021,
+    author = {Mead, Alexander J. and Verde, Licia},
+    title = {Including beyond-linear halo bias in halo models},
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    year = {2021},
+    volume = {503},
+    pages = {3095--3111},
+    eprint = {2011.08858},
+    archivePrefix = {arXiv},
+}
+
+@article{Jego2026,
+    author = {Jego, Baptiste and B{\'e}thermin, Matthieu and Kraljic, Katarina and
+              Gkogkou, Athanasia and Lagache, Guilaine and Maniyar, Abhishek S.},
+    title = {Non-linear halo bias for accurate modelling of cosmic infrared
+             background anisotropies},
+    year = {2026},
+    eprint = {2609.22057},
     archivePrefix = {arXiv},
 }
 ```

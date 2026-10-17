@@ -47,8 +47,9 @@ HMF_MODEL = 'tinker08'
 BIAS_MODEL = 'tinker10'
 CONC_MODEL = 'duffy08'
 
-# Non-linear halo bias beta^NL (Mead & Verde 2021, as adopted by Jego et al.
-# 2026): P_2h(k, z) = P_lin(k, z) [1 + A beta_med(k, z)] at every 2-halo site.
+# Non-linear halo bias beta^NL (Mead & Verde 2021, arXiv:2011.08858, as
+# adopted for the CIB by Jego et al. 2026, arXiv:2609.22057):
+# P_2h(k, z) = P_lin(k, z) [1 + A beta_med(k, z)] at every 2-halo site.
 # On by default; BETA_NL = False recovers the linear-bias 2-halo term of
 # Maniyar+2021. Options are passed straight to beta_nl.BetaNL. The default is
 # the "extrapolated" model of the ksz_co analysis: the mass-independent median
@@ -68,15 +69,22 @@ MDEF_TSZ = '500c'
 
 # ── CIB best-fit parameters ─────────────────────────────────────────────────
 
-# 200c mass definition (CIB auto-spectrum)
+# 200c mass definition (CIB auto-spectrum). Posterior medians of the 2026
+# refit with beta^NL on (A = 1): Planck XXX CIB spectra 217-857 GHz with a
+# cross-frequency covariance, Guilaine SFRD and Odegard+2019 mean CIB, with
+# residual-dust and 217 GHz radio nuisance terms, Planck18 and
+# hmf_model='tinker08_original' (use that HMF for consistency with these
+# values). Maniyar+2021 (no beta^NL, old subhalo MF) values, for reproducing
+# the paper: Meff 5.34372e12, eta_max 0.5126, sigma_Mh 1.2483, tau 0.8255.
 CIB_PARAMS_200C = {
-    'Meff': 5.34372e12,
-    'eta_max': 0.5126,
-    'sigma_Mh': 1.2483,
-    'tau': 0.8255,
+    'Meff': 1.604e12,
+    'eta_max': 0.3377,
+    'sigma_Mh': 1.650,
+    'tau': 0.1407,
 }
 
-# 500c mass definition (CIB×tSZ cross)
+# 500c mass definition (CIB×tSZ cross). Still the Maniyar+2021 fit, made
+# without beta^NL; not yet refitted.
 CIB_PARAMS_500C = {
     'Meff': 6.96252e12,
     'eta_max': 0.4967,
