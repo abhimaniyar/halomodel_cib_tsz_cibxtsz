@@ -334,8 +334,22 @@ Verde's MultiDark measurements, as used by Jego et al.
 
 ### Default CIB parameters
 
-`config.CIB_PARAMS_200C` holds the posterior medians of a refit with β^NL on (A = 1):
-M_eff = 1.604×10¹² M_sun, η_max = 0.338, σ_Mh = 1.650, τ = 0.141.
+`config.CIB_PARAMS_200C` holds the posterior medians of a refit with β^NL on (A = 1),
+with 68% intervals:
+
+| parameter | median and 68% interval |
+|---|---|
+| M_eff [M_sun] | 1.60 (+0.19 −0.15) ×10¹² (log10 M_eff = 12.205 +0.050 −0.044) |
+| η_max | 0.338 +0.044 −0.028 |
+| σ_Mh | 1.65 +0.17 −0.20 |
+| τ | 0.14 +0.17 −0.10 |
+
+- `data/bestfit_200c.txt` lists these values with their errors.
+- `data/bestfit_200c_covmat.txt` is the 4×4 posterior covariance in
+  (log10 M_eff, η_max, σ_Mh, τ), e.g. for using the fit as a prior. τ peaks near its
+  τ = 0 prior edge, so a Gaussian built from it is approximate.
+- The Maniyar+2021 fits are kept as `data/bestfit_200c_maniyar2021.txt` and
+  `data/bestfit_500c_maniyar2021.txt`.
 - **Data:** Planck XXX CIB spectra at 217–857 GHz with a cross-frequency covariance,
   plus SFRD and mean-CIB constraints.
 - **Halo model:** Planck18 with `hmf_model='tinker08_original'`. Use that HMF for

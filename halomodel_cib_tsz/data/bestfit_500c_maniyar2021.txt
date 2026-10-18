@@ -1,3 +1,7 @@
+# Maniyar+2021 (arXiv:2006.16329) Planck+SPIRE best fit with 500c halos, made
+# without beta^NL and with the arXiv subhalo MF coefficient 0.13. Kept for
+# reproducing the paper. Rows: Meff [M_sun], eta_max, sigma_Mh, tau, then shot
+# noise and calibration factors; columns: value, +1 sigma, -1 sigma.
 6.962523672799226562e+12 2.454471078652421875e+11 1.474244089346123047e+11
 4.967291547804018048e-01 2.931827758559990560e-02 2.988528673318180395e-02
 1.807445000986138695e+00 1.422084200190183445e-01 1.188743628130091157e-01

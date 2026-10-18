@@ -76,6 +76,7 @@ MDEF_TSZ = '500c'
 # hmf_model='tinker08_original' (use that HMF for consistency with these
 # values). Maniyar+2021 (no beta^NL, old subhalo MF) values, for reproducing
 # the paper: Meff 5.34372e12, eta_max 0.5126, sigma_Mh 1.2483, tau 0.8255.
+# 68% intervals: data/bestfit_200c.txt; covariance: data/bestfit_200c_covmat.txt.
 CIB_PARAMS_200C = {
     'Meff': 1.604e12,
     'eta_max': 0.3377,

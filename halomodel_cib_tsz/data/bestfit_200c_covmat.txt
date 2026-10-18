@@ -1,0 +1,8 @@
+# Posterior covariance of (log10 Meff [M_sun], eta_max, sigma_Mh, tau) for
+# bestfit_200c.txt, from the MCMC samples with the nuisance parameters
+# marginalised. The posterior is not Gaussian in tau (it peaks near the
+# tau = 0 prior edge); treat a Gaussian prior built from this as approximate.
+2.242358e-03 -1.703746e-04 2.029854e-03 3.378881e-03
+-1.703746e-04 1.904759e-03 -8.068661e-03 -2.213684e-03
+2.029854e-03 -8.068661e-03 3.678133e-02 1.316223e-02
+3.378881e-03 -2.213684e-03 1.316223e-02 2.140263e-02
