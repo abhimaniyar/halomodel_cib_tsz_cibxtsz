@@ -83,8 +83,11 @@ CIB_PARAMS_200C = {
     'tau': 0.1407,
 }
 
-# 500c mass definition (CIB×tSZ cross). Still the Maniyar+2021 fit, made
-# without beta^NL; not yet refitted.
+# 500c mass definition: the Maniyar+2021 fit with SFR parameters defined on
+# M500c (made without beta^NL). No longer used by compute_spectra, whose
+# CIB x tSZ evaluates the 200c parameters at each 500c halo's M200c
+# (CIBModel(..., mdef='500c', sfr_mdef='200c')). Kept to reproduce the paper:
+# CIBModel(..., params=CIB_PARAMS_500C, mdef='500c').
 CIB_PARAMS_500C = {
     'Meff': 6.96252e12,
     'eta_max': 0.4967,

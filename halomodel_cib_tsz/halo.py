@@ -14,6 +14,7 @@ from scipy.interpolate import RectBivariateSpline, InterpolatedUnivariateSpline
 from colossus.cosmology import cosmology
 from colossus.lss import mass_function, bias, peaks
 from colossus.halo import concentration as conc_module
+from colossus.halo import mass_adv
 
 from . import config
 from .beta_nl import BetaNL
@@ -397,6 +398,33 @@ class HaloModel:
         # Physical: (value/h) / (value/h)^3 → × h^2, then × 1e9 for kpc^3→Mpc^3
         rho_col = self._cosmo.rho_c(z)  # M_sun h^2 / kpc^3
         return rho_col * 1e9 * self.h**2  # physical M_sun / Mpc^3
+
+    def convert_mass(self, M: np.ndarray, z: float, mdef_in: str,
+                     mdef_out: str) -> np.ndarray:
+        """
+        Mass in *mdef_out* of halos of mass *M* in *mdef_in* at redshift *z*,
+        for an NFW profile with this model's concentration relation.
+
+        Parameters
+        ----------
+        M : array_like
+            Halo masses in M_sun (mass definition *mdef_in*).
+        z : float
+            Redshift.
+        mdef_in, mdef_out : str
+            Mass definitions, e.g. ``'500c'`` and ``'200c'``.
+
+        Returns
+        -------
+        M_out : ndarray
+            Masses in M_sun in *mdef_out*, same shape as *M*.
+        """
+        M = np.asarray(M, dtype=float)
+        if mdef_in == mdef_out:
+            return M.copy()
+        m_out, _, _ = mass_adv.changeMassDefinitionCModel(
+            M * self.h, z, mdef_in, mdef_out, c_model=self.conc_model)
+        return np.asarray(m_out) / self.h
 
     def r_delta(self, M: np.ndarray, z: float, mdef: str = '200c') -> np.ndarray:
         """

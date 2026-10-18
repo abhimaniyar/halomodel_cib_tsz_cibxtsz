@@ -22,7 +22,9 @@ class CIBxTSZModel:
     Parameters
     ----------
     cib_model : CIBModel
-        CIB model initialised with ``mdef='500c'`` and 500c best-fit params.
+        CIB model initialised with ``mdef='500c'``. By default (compute_spectra)
+        its SFR parameters are the 200c ones, evaluated at each halo's
+        M200c(M500c, z) (``sfr_mdef='200c'``).
     tsz_model : tSZModel
         tSZ model initialised with ``mdef='500c'``.
 

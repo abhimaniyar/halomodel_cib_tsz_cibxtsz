@@ -340,8 +340,21 @@ M_eff = 1.604×10¹² M_sun, η_max = 0.338, σ_Mh = 1.650, τ = 0.141.
   plus SFRD and mean-CIB constraints.
 - **Halo model:** Planck18 with `hmf_model='tinker08_original'`. Use that HMF for
   consistency with these values.
-- **CIB × tSZ:** `CIB_PARAMS_500C`, used for CIB × tSZ, is still the Maniyar+2021 fit
-  made without β^NL.
+- **CIB × tSZ:** the cross-spectrum uses M_500c halos for both tracers, as in
+  Maniyar+2021. It no longer needs a separate 500c CIB fit: the same 200c parameters
+  are evaluated at each halo's M_200c(M_500c, z), converted with an NFW profile and
+  the halo model's concentration relation, via
+  `CIBModel(..., mdef='500c', sfr_mdef='200c')`. So the cross uses the same CIB model
+  as the auto spectra, including any `cib_params` you pass.
+- **Mass-function consistency:** with the default colossus Tinker08 mass function,
+  the 500c and 200c mass functions agree on the halo population to about 10%, and
+  this conversion reproduces the 200c SFRD and mean CIB to within 6%. With
+  `hmf_model='tinker08_original'`, the 500c mass function has 23–32% more halos than
+  its own 200c version, so the converted CIB in the cross comes out about 25–35% too
+  high. Prefer the default HMF for CIB × tSZ.
+- **Paper's approach:** `config.CIB_PARAMS_500C`, the Maniyar+2021 fit made directly
+  at 500c without β^NL, is kept for reproducing the paper:
+  `CIBModel(..., params=CIB_PARAMS_500C, mdef='500c')`.
 
 ### Matching the original paper
 

@@ -211,9 +211,10 @@ def compute_spectra(
 
     # ── CIB×tSZ ──────────────────────────────────────────────────────
     if 'cibxtsz' in components:
-        # Cross uses 500c for both
+        # Cross uses 500c halos for both; the CIB SFR model keeps its 200c
+        # parameters, evaluated at each halo's M200c(M500c, z)
         cib_500 = CIBModel(hm, snu, freqs, cc, fc,
-                           params=config.CIB_PARAMS_500C, mdef='500c')
+                           params=cib_params, mdef='500c', sfr_mdef='200c')
         if 'tsz' not in components:
             tsz = tSZModel(hm, freqs, experiment=experiment, B=tsz_B)
 

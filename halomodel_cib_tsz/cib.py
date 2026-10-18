@@ -35,7 +35,15 @@ class CIBModel:
         CIB model parameters: ``{Meff, eta_max, sigma_Mh, tau}``.
         If *None*, uses default for the given *mdef*.
     mdef : str
-        Mass definition (default ``'200c'``).
+        Mass definition of the halos: mass function, bias and profiles
+        (default ``'200c'``).
+    sfr_mdef : str, optional
+        Mass definition in which the SFR parameters are defined (default:
+        *mdef*). If it differs from *mdef*, each halo's star formation and
+        subhalo population are evaluated at its mass converted to
+        *sfr_mdef* (NFW, the halo model's concentration relation), so the
+        same CIB model can be used with halos of another definition, e.g.
+        the 500c halos of the CIB x tSZ cross-spectrum with 200c parameters.
 
     Raises
     ------
@@ -53,6 +61,7 @@ class CIBModel:
         fc: np.ndarray,
         params: Optional[dict] = None,
         mdef: str = '200c',
+        sfr_mdef: Optional[str] = None,
     ) -> None:
         self.hm = halo_model
         self.snu = snu              # (n_freq, n_z)
@@ -61,6 +70,7 @@ class CIBModel:
         self.cc = np.asarray(cc)
         self.fc = np.asarray(fc)
         self.mdef = mdef
+        self.sfr_mdef = mdef if sfr_mdef is None else sfr_mdef
 
         # Validate SED shape
         if snu.shape[0] != self.nfreq:
@@ -74,7 +84,8 @@ class CIBModel:
 
         # Model parameters
         if params is None:
-            params = config.CIB_PARAMS_200C if mdef == '200c' else config.CIB_PARAMS_500C
+            params = (config.CIB_PARAMS_200C if self.sfr_mdef == '200c'
+                      else config.CIB_PARAMS_500C)
         self.Meff = params['Meff']
         self.eta_max = params['eta_max']
         self.sigma_Mh = params['sigma_Mh']
@@ -100,6 +111,17 @@ class CIBModel:
         self.hmf_arr = pre['hmf']     # (n_mass, n_z)
         self.bias_arr = pre['bias']   # (n_mass, n_z)
         self.nfw_arr = pre['nfw']     # (n_mass, n_ell, n_z)
+
+        # Masses at which the SFR model is evaluated: the halo masses
+        # themselves, or (sfr_mdef != mdef) their converted values, which
+        # depend on z through the concentration
+        if self.sfr_mdef != mdef:
+            print(f"CIB: converting {mdef} halo masses to {self.sfr_mdef}...")
+            self._mass_sfr = np.column_stack([
+                halo_model.convert_mass(self.mass, zj, mdef, self.sfr_mdef)
+                for zj in self.z])                    # (n_mass, n_z)
+        else:
+            self._mass_sfr = None
 
         # Pre-compute emissivities
         print("CIB: computing emissivities...")
@@ -173,6 +195,22 @@ class CIBModel:
         """
         return self.eta(M) * self.bar(M)
 
+    def _sfr_mz(self, Mmz: np.ndarray) -> np.ndarray:
+        """SFR for a mass array that depends on z, shape (n_M, n_z)."""
+        dlnM2 = (np.log(Mmz) - np.log(self.Meff)) ** 2
+        sigma = np.where(Mmz < self.Meff, self.sigma_Mh, self.sigpow[None, :])
+        eta = self.eta_max * np.exp(-dlnM2 / (2.0 * sigma ** 2))
+        fb = self.hm.baryon_fraction(self.z)
+        a = 46.1 * (1.0 + 1.11 * self.z) * self.hm.E_z(self.z)
+        return eta * (Mmz / 1.0e12) ** 1.1 * a[None, :] * fb
+
+    def _central_sfr(self) -> np.ndarray:
+        """SFR of the central of each halo, (n_mass, n_z)."""
+        fsub = config.F_SUB
+        if self._mass_sfr is None:
+            return self.sfr(self.mass * (1.0 - fsub))
+        return self._sfr_mz(self._mass_sfr * (1.0 - fsub))
+
     # ── Emissivities ─────────────────────────────────────────────────────
 
     def _djc_dlogMh(self) -> np.ndarray:
@@ -188,7 +226,7 @@ class CIBModel:
         fsub = config.F_SUB
         chi = self.hm._chi  # (n_z,) Mpc
 
-        sfr_cen = self.sfr(self.mass * (1.0 - fsub))  # (n_mass, n_z)
+        sfr_cen = self._central_sfr()  # (n_mass, n_z)
         rest = self.hmf_arr * sfr_cen * (1.0 + self.z) * chi**2 / config.KC
         # rest shape: (n_mass, n_z)
 
@@ -208,6 +246,8 @@ class CIBModel:
             In M_sun/yr.
         """
         fsub = config.F_SUB
+        if self._mass_sfr is not None:
+            return self._sfr_sat_converted()
         sfr_sat = np.zeros((self.n_mass, self.n_z))
 
         for i in range(self.n_mass):
@@ -237,6 +277,32 @@ class CIBModel:
             sfr_sat[i, :] = integrate.simpson(subhmf[:, None] * sfr_sub,
                                               dx=dlnmsub, axis=0)
 
+        return sfr_sat
+
+    def _sfr_sat_converted(self) -> np.ndarray:
+        """
+        _sfr_sat_per_parent when the SFR-model mass of each parent depends
+        on z (sfr_mdef != mdef). The subhalos of each parent are integrated
+        up to its converted mass on one subhalo grid (10^5 M_sun upward in
+        0.1 dex), with the masses above the parent masked at each z.
+        """
+        fsub = config.F_SUB
+        sfr_sat = np.zeros((self.n_mass, self.n_z))
+        Mh = self._mass_sfr                          # (n_mass, n_z)
+        Mh_eff = Mh * (1.0 - fsub)
+        sfr_par = self._sfr_mz(Mh_eff)               # (n_mass, n_z)
+        for i in range(self.n_mass):
+            top = np.log10(Mh_eff[i].max())
+            log_ms = np.arange(5.0, top, 0.1)
+            if len(log_ms) < 2:
+                continue
+            ms = 10 ** log_ms
+            inside = ms[:, None] < Mh_eff[i][None, :]           # (n_ms, n_z)
+            sfrI = self.sfr(ms)                                 # (n_ms, n_z)
+            sfrII = sfr_par[i][None, :] * ms[:, None] / Mh_eff[i][None, :]
+            subhmf = self._subhalo_mf(Mh[i][None, :], ms[:, None])
+            integrand = np.where(inside, subhmf * np.minimum(sfrI, sfrII), 0.0)
+            sfr_sat[i, :] = integrate.simpson(integrand, dx=0.1, axis=0)
         return sfr_sat
 
     def _djsub_dlogMh(self) -> np.ndarray:
@@ -366,10 +432,8 @@ class CIBModel:
         sfrd : ndarray, shape ``(n_z,)``
             SFRD in M_sun / yr / Mpc^3.
         """
-        fsub = config.F_SUB
-
         # Central contribution: parent halo mass reduced by (1 - fsub)
-        sfr_cen = self.sfr(self.mass * (1.0 - fsub))  # (n_mass, n_z)
+        sfr_cen = self._central_sfr()  # (n_mass, n_z)
         sfrd_cen = simps(self.hmf_arr * sfr_cen, self.log10_mass, axis=0)
 
         # Satellite contribution: the per-parent subhalo SFR (integrated
